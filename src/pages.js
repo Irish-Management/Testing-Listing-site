@@ -4,7 +4,7 @@
 import { GUIDE_INTRO, NOTRE_DAME, GUIDE_SECTIONS, GETTING_AROUND, VISIT_SOUTH_BEND } from './guide.js';
 import { POSTS } from './posts.js';
 
-const V = '55'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '56'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -250,7 +250,7 @@ function layout(site, title, body, opts = {}) {
     // Fonts load without blocking the first paint; the page shows in the fallback font until they arrive.
     '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap" media="print" onload="this.media=\'all\'">' +
     '<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap"></noscript>' +
-    (opts.map ? '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">' : '') +
+    (opts.map ? '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous" referrerpolicy="no-referrer">' : '') +
     '<link rel="stylesheet" href="/site.css?v=' + V + '">' +
     trackingHead(site) +
     '</head><body class="' + (opts.bodyClass || '') + '"' + (site.newsletterPopup ? ' data-flodesk-popup="' + site.newsletterPopup + '"' : '') + '>' +
@@ -260,7 +260,7 @@ function layout(site, title, body, opts = {}) {
     header(site, opts) +
     '<main id="main">' + body + '</main>' + footer(site) +
     '<script type="application/json" id="site-boot">' + json({ leadDays: site.leadDays }) + '</script>' +
-    (opts.map ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>' : '') +
+    (opts.map ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>' : '') +
     (opts.cluster ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>' : '') +
     '<script src="/app.js?v=' + V + '"></script>' +
     (opts.script ? '<script src="/' + opts.script + '.js?v=' + V + '"></script>' : '') +

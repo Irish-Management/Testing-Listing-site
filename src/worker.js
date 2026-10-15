@@ -522,11 +522,41 @@ function todayISO() { return new Date().toISOString().slice(0, 10); }
 function int(v, def) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : def; }
 function leadDays(env) { return Math.max(0, int(env.MIN_LEAD_DAYS, 3)); }
 
+// Security headers on every page: HTTPS only, no framing by other sites (clickjacking), no plugins,
+// and no access to camera, microphone, or location.
+const SECURITY_HEADERS = {
+  'Strict-Transport-Security': 'max-age=31536000',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Content-Security-Policy': "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests",
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), usb=(), payment=()',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+};
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
   });
+}
+
+// Per-visitor rate limit. Returns a 429 response when the visitor is over the limit, else null.
+async function rateLimited(binding, request, bucket) {
+  if (!binding) return null;
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  try {
+    const { success } = await binding.limit({ key: bucket + ':' + ip });
+    return success ? null : json({ error: 'Too many requests. Please wait a minute and try again.' }, 429);
+  } catch (e) {
+    return null; // never block real guests because the limiter itself failed
+  }
+}
+
+// Compare secrets in constant time so the refresh key cannot be guessed by timing.
+function sameSecret(a, b) {
+  const x = new TextEncoder().encode(String(a || '')), y = new TextEncoder().encode(String(b || ''));
+  if (!x.length || x.length !== y.length) return false;
+  return crypto.subtle.timingSafeEqual(x, y);
 }
 
 function html(body, status = 200) {
@@ -536,8 +566,7 @@ function html(body, status = 200) {
       'Content-Type': 'text/html; charset=utf-8',
       // Always revalidated and never stored by shared caches, but allows instant back/forward navigation.
       'Cache-Control': 'private, no-cache',
-      'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      ...SECURITY_HEADERS,
     },
   });
 }
@@ -801,7 +830,8 @@ async function route(request, env, ctx) {
   if ((trackParam === 'on' || trackParam === 'off') && request.method === 'GET') {
     url.searchParams.delete('track');
     return new Response(null, { status: 302, headers: {
-      Location: url.pathname + url.search,
+      // Always a path on this site: collapse leading slashes so //other-site.com cannot redirect away.
+      Location: '/' + url.pathname.replace(/^\/+/, '') + url.search,
       'Set-Cookie': 'im_track=' + (trackParam === 'on' ? '1; Max-Age=86400' : '; Max-Age=0') + '; Path=/; SameSite=Lax; Secure',
       'Cache-Control': 'no-store',
     } });
@@ -814,7 +844,11 @@ async function route(request, env, ctx) {
   if (path === '/robots.txt') return text(robotsTxt(s));
   if (path === '/terms') return html(renderTerms(s));
   if (path === '/privacy-policy' || path === '/privacy') return html(renderPrivacy(s));
-  if (path === '/thank-you') return html(renderThanks(s, await thankYouBooking(env, ctx, url)));
+  if (path === '/thank-you') {
+    // The booking lookup is rate limited so booking IDs cannot be scanned.
+    const limited = url.searchParams.has('bookingId') ? await rateLimited(env.BOOK_LIMIT, request, 'thanks') : null;
+    return html(renderThanks(s, limited ? null : await thankYouBooking(env, ctx, url)));
+  }
 
   if (!env.OWNERREZ_TOKEN) {
     return html(renderError(s, 'Setup needed', 'Add the OWNERREZ_TOKEN secret to finish connecting this site to OwnerRez.'), 500);
@@ -822,7 +856,7 @@ async function route(request, env, ctx) {
 
   // Manual snapshot refresh, for warming the cache right after a deploy.
   if (path === '/__refresh' && request.method === 'POST') {
-    if (!env.REFRESH_KEY || request.headers.get('x-refresh-key') !== env.REFRESH_KEY) return json({ error: 'Forbidden' }, 403);
+    if (!env.REFRESH_KEY || !sameSecret(request.headers.get('x-refresh-key'), env.REFRESH_KEY)) return json({ error: 'Forbidden' }, 403);
     const snap = await refreshSnapshot(env);
     return json({ cursor: snap.cursor, homes: Object.keys(snap.props).length, priced: Object.values(snap.props).filter((p) => p.stay).length });
   }
@@ -955,6 +989,16 @@ async function route(request, env, ctx) {
     const guests = Math.min(prop.maxGuests || 16, Math.max(1, int(url.searchParams.get('guests'), 1)));
     const pets = Math.min(prop.maxPets || 0, Math.max(0, int(url.searchParams.get('pets'), 0)));
     return html(renderProperty(s, { prop, listing, reviews, stay, guests, pets }));
+  }
+
+  // Endpoints that call OwnerRez are rate limited per visitor (see wrangler.toml).
+  if (path === '/api/calendar' || path === '/api/quote') {
+    const limited = await rateLimited(env.API_LIMIT, request, 'api');
+    if (limited) return limited;
+  }
+  if (path === '/api/book') {
+    const limited = await rateLimited(env.BOOK_LIMIT, request, 'book');
+    if (limited) return limited;
   }
 
   if (path === '/api/calendar' && request.method === 'GET') {

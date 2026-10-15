@@ -1,0 +1,10 @@
+# Security headers for static files (images, CSS, JS). Pages get theirs from src/worker.js.
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Versioned CSS/JS (?v=) and images rarely change: let browsers keep them for a day.
+/img/*
+  Cache-Control: public, max-age=86400

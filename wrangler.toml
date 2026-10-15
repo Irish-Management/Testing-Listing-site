@@ -11,6 +11,18 @@ directory = "./public"
 binding = "SNAP"
 id = "69b6c0a64d0548ef9cedd599f3eb34b8"
 
+# Per-visitor rate limits (Workers Rate Limiting) that protect the OwnerRez API limit
+# (300 requests per 5 minutes) from scripted abuse. Real guests never get near these.
+[[ratelimits]]
+name = "API_LIMIT"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
+
+[[ratelimits]]
+name = "BOOK_LIMIT"
+namespace_id = "1002"
+simple = { limit = 10, period = 60 }
+
 [triggers]
 crons = ["*/10 * * * *"]
 
