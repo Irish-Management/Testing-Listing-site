@@ -21,6 +21,10 @@ Pages: `/` (home), `/s` (all homes with map; accepts `?checkin=&checkout=&guests
 `/listings/<collection>` (opens `/s` with a collection selected: `unique`, `large-groups`,
 `walking-campus`, `small-groups`), `/reviews`, `/terms`, `/privacy-policy`, `/sitemap`, `/thank-you`.
 
+`/listings/big-dates` shows upcoming big weekends (football, graduation) with live counts of open
+homes and a link to search each weekend. Edit the list in `src/events.js`; past events drop off on
+their own.
+
 Collections are defined in `COLLECTIONS` in `src/pages.js`. Each is a filter on the all-homes
 page (quick buttons and a Collection section in the Filters panel) that matches homes carrying
 its OwnerRez tag; to add a home to a collection, add the tag in OwnerRez.

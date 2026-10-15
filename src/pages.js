@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '16'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '17'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -197,7 +197,7 @@ function header(site, opts) {
     '<div class="menu-wrap"><button type="button" class="iconbtn" data-menu aria-expanded="false" aria-label="Menu">' + ICON.menu + '</button>' +
       '<nav class="menu" aria-label="Main" hidden>' +
         '<a href="/">Home</a><a href="/s">All homes</a>' +
-        '<span class="menu-label">Listings</span>' + COLLECTIONS.map((c) => '<a class="sub" href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') +
+        '<span class="menu-label">Listings</span>' + COLLECTIONS.map((c) => '<a class="sub" href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a class="sub" href="/listings/big-dates">Big Weekends</a>' +
         '<span class="menu-sep" aria-hidden="true"></span><a href="/reviews">Guest reviews</a>' +
         (site.sms ? '<a href="sms:' + esc(site.sms) + '">Text us</a>' : '') +
         (site.email ? '<a href="mailto:' + esc(site.email) + '">Email us</a>' : '') +
@@ -218,7 +218,7 @@ function footer(site) {
   ].filter(Boolean).join('');
   return '<footer class="site-footer">' + contact +
     '<div class="fwrap fgrid"><div><img src="/img/logo.png" alt="' + esc(site.name) + '" width="32" height="32"></div>' +
-      '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '</div>' +
+      '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a href="/listings/big-dates">Big Weekends</a></div>' +
       (social ? '<div><h2>Social</h2>' + social + '</div>' : '') + '</div></div>' +
     '<div class="fbottom"><div class="fwrap"><span>&copy; ' + new Date().getUTCFullYear() + ' ' + esc(site.name) + '</span>' +
       '<nav aria-label="Legal"><a href="/terms">Terms of Service</a><span aria-hidden="true">&middot;</span><a href="/privacy-policy">Privacy Policy</a><span aria-hidden="true">&middot;</span><a href="/sitemap">Sitemap</a></nav></div></div>' +
@@ -495,6 +495,57 @@ export function renderProperty(site, d) {
   });
 }
 
+function weekday(iso) { return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }); }
+function stayLabel(a, b) { return weekday(a) + ', ' + shortDate(a) + ' – ' + weekday(b) + ', ' + shortDate(b); }
+function groupId(name) { return slug(name); }
+
+function eventCard(e, total, site) {
+  const nights = Math.round((Date.parse(e.departure) - Date.parse(e.arrival)) / 86400000);
+  const d = e.date || e.arrival;
+  const month = new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+  const badge = e.date
+    ? '<div class="ev-date"><span>' + month + '</span><b>' + Number(d.slice(8)) + '</b><span>' + weekday(d).toUpperCase() + '</span></div>'
+    : '<div class="ev-date range"><span>' + month + '</span><b>' + Number(e.arrival.slice(8)) + '–' + Number(e.departure.slice(8)) + '</b><span>' + e.arrival.slice(0, 4) + '</span></div>';
+  let status = '';
+  if (e.open != null && total) {
+    const share = e.open / total;
+    const cls = e.open === 0 ? 'out' : share <= 0.15 ? 'low' : share <= 0.4 ? 'mid' : 'ok';
+    const label = e.open === 0 ? 'Fully booked' : share <= 0.15 ? 'Only ' + e.open + ' left' : share <= 0.4 ? 'Filling up' : 'Good availability';
+    status = '<div class="ev-avail"><div class="ev-bar"><span class="' + cls + '" style="width:' + Math.max(e.open ? 4 : 0, Math.round(share * 100)) + '%"></span></div>' +
+      '<p><span class="ev-tag ' + cls + '">' + label + '</span>' + (e.open ? plural(e.open, 'home') + ' of ' + total + ' still open' : 'Every home is booked for this weekend') + '</p></div>';
+  }
+  const href = '/s?checkin=' + e.arrival + '&checkout=' + e.departure;
+  const action = e.open === 0
+    ? (site.sms ? '<a class="chip" href="sms:' + esc(site.sms) + '">Text us about this weekend</a>' : '')
+    : '<a class="btn-dark big ev-go" href="' + esc(href) + '">See open homes</a>';
+  return '<article class="ev">' + badge + '<div class="ev-body"><h3>' + esc(e.name) + '</h3>' +
+    '<p class="muted">' + esc(stayLabel(e.arrival, e.departure)) + ' <span aria-hidden="true">&middot;</span> ' + plural(nights, 'night') + '</p>' +
+    status + action + '</div></article>';
+}
+
+export function renderBigDates(site, d) {
+  const groups = [];
+  d.events.forEach((e) => { if (!groups.includes(e.group)) groups.push(e.group); });
+  const body =
+    '<section class="band bd-hero" style="--bg:url(/img/welcome.jpg)"><div class="band-in">' +
+      '<p class="sub">Discover Spacious Luxury in Our Homes</p><h1>Big Weekends in South Bend</h1>' +
+      '<p class="bd-intro">Experience the best of South Bend’s biggest weekends with spacious homes designed for gathering, relaxing, and making memories together. Whether you’re visiting for Notre Dame football weekends, graduation celebrations, concerts, or special events, our properties offer the perfect combination of comfort, style, and convenience.</p>' +
+      (groups.length > 1 ? '<nav class="bd-jump" aria-label="Jump to">' + groups.map((g) => '<a class="chip" href="#' + groupId(g) + '">' + esc(g) + '</a>').join('') + '</nav>' : '') +
+    '</div></section>' +
+    '<div class="wrap bd">' +
+      (groups.length
+        ? groups.map((g) => '<section class="bd-group" id="' + groupId(g) + '"><h2>' + esc(g) + '</h2>' + (d.groups[g] ? '<p class="muted">' + esc(d.groups[g]) + '</p>' : '') +
+            '<div class="ev-grid">' + d.events.filter((e) => e.group === g).map((e) => eventCard(e, d.total, site)).join('') + '</div></section>').join('')
+        : '<div class="empty"><p>New big weekends are coming soon. Text us and we will help you plan your stay.</p><a class="chip" href="/s">Browse homes</a></div>') +
+      '<section class="bd-cta"><div><h2>Planning a big group or a different weekend?</h2><p class="muted">Our South Bend team books game days, graduations, and reunions every year. Tell us your dates and group size and we will find the right home.</p></div>' +
+        '<div class="bd-cta-btns">' + (site.sms ? '<a class="btn-dark big" href="sms:' + esc(site.sms) + '">Text us</a>' : '') + '<a class="chip" href="/s">Browse all homes</a></div></section>' +
+    '</div>';
+  return layout(site, 'Big Weekends in South Bend | ' + site.name, body, {
+    description: 'Book Notre Dame football weekends, graduation, and other big South Bend weekends direct with Irish Management. See which homes are still open for each date.',
+    image: '/img/welcome.jpg',
+  });
+}
+
 export function renderReviews(site, d) {
   const r = d.rating;
   const body = '<section class="guests wrap page-pad"><p class="sub">What Guests Say</p><h1>Trusted by Travelers</h1>' +
@@ -505,7 +556,7 @@ export function renderReviews(site, d) {
 }
 
 export function renderSitemap(site, d) {
-  const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li>' + COLLECTIONS.map((c) => '<li><a href="/listings/' + c.slug + '">' + esc(c.name) + '</a></li>').join('') + '<li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
+  const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li>' + COLLECTIONS.map((c) => '<li><a href="/listings/' + c.slug + '">' + esc(c.name) + '</a></li>').join('') + '<li><a href="/listings/big-dates">Big Weekends</a></li><li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
     '<h2>Homes</h2><ul>' + d.props.map((p) => '<li><a href="' + esc(propHref(p)) + '">' + esc(p.title) + '</a></li>').join('') + '</ul></section>';
   return layout(site, 'Sitemap | ' + site.name, body);
 }

@@ -4,8 +4,9 @@
 
 import {
   renderHome, renderSearch, renderProperty, renderThanks, renderNotFound, renderError,
-  renderReviews, renderSitemap, renderTerms, renderPrivacy, AMENITY_FILTERS, COLLECTIONS,
+  renderReviews, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS,
 } from './pages.js';
+import { EVENTS, EVENT_GROUPS } from './events.js';
 
 const API = 'https://api.ownerrez.com';
 const UA = 'IrishManagementDirectBooking/1.0';
@@ -617,6 +618,22 @@ async function route(request, env, ctx) {
   }
 
   if (path === '/listings' && request.method === 'GET') return Response.redirect(url.origin + '/s' + url.search, 301);
+  if ((path === '/listings/big-dates' || path === '/big-dates') && request.method === 'GET') {
+    const props = await getProperties(env, ctx);
+    const ours = new Set(props.map((p) => p.id));
+    const today = todayISO();
+    const upcoming = EVENTS.filter((e) => (e.date || e.departure) >= today && validStay(e.arrival, e.departure));
+    // How many of our homes are still open for each weekend. Cached for 30 minutes per weekend.
+    const events = await Promise.all(upcoming.map(async (e) => {
+      let open = null;
+      try {
+        const ids = await cached(ctx, 'bigdate:v1:' + e.arrival + ':' + e.departure, 1800, () => searchAvailable(env, ctx, e.arrival, e.departure));
+        open = ids.filter((id) => ours.has(id)).length;
+      } catch (err) { /* show the card without a count */ }
+      return Object.assign({}, e, { open });
+    }));
+    return html(renderBigDates(s, { events, groups: EVENT_GROUPS, total: props.length }));
+  }
   const colMatch = path.match(/^\/listings\/([\w-]+)$/);
   if ((path === '/s' || colMatch) && request.method === 'GET') {
     const q = searchParams(url);
