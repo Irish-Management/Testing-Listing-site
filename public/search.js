@@ -27,20 +27,57 @@
     return '<a class="mpop" href="' + U.esc(p.href) + '">' + (p.photo ? '<img src="' + U.esc(p.photo) + '" alt="">' : '') +
       '<span>' + U.esc(p.title) + '</span>' + (p.price ? '<span class="mp"><b>' + U.esc(p.price) + '</b> ' + U.esc(p.sub || '') + '</span>' : '') + '</a>';
   }
-  var mapEl = $('#map');
+  // Homes in the same building share a map spot (locations are rounded), so they get one pin
+  // per spot. A spot with several homes shows "7 homes · $474+" and opens a list of them.
+  var groups = {}, groupOf = {}, hidden = {};
+  pins.forEach(function (p) {
+    var k = p.lat + ',' + p.lng;
+    var g = groups[k] || (groups[k] = { key: k, lat: p.lat, lng: p.lng, ids: [] });
+    g.ids.push(p.id);
+    groupOf[p.id] = g;
+  });
+  function cost(p) { return p.price ? +String(p.price).replace(/[^0-9.]/g, '') || null : null; }
+  function members(g) {
+    var ids = g.ids.filter(function (id) { return !hidden[id]; });
+    // Follow the list's current sort order.
+    var pos = {};
+    $$('.results .card').forEach(function (c, i) { pos[c.getAttribute('data-id')] = i; });
+    return ids.sort(function (a, b) { return (pos[a] || 0) - (pos[b] || 0); }).map(function (id) { return pinById[id]; });
+  }
+  function groupLabel(list) {
+    if (list.length === 1) return list[0].price || '';
+    var low = null;
+    list.forEach(function (p) { var c = cost(p); if (c != null && (low == null || c < low.c)) low = { c: c, price: p.price }; });
+    return list.length + ' homes' + (low ? ' · ' + low.price + '+' : '');
+  }
+  function groupHtml(list, cls) {
+    if (list.length === 1) return pinHtml(list[0]).replace('class="pricepin"', 'class="pricepin' + (cls || '') + '"');
+    return '<span class="pricepin cluster' + (cls || '') + '">' + U.esc(groupLabel(list)) + '</span>';
+  }
+  function listPopupHtml(list) {
+    return '<div class="mlist"><div class="mlist-h">' + list.length + ' homes at this spot</div>' + list.map(function (p) {
+      return '<a href="' + U.esc(p.href) + '">' + (p.photo ? '<img src="' + U.esc(p.photo) + '" alt="" loading="lazy">' : '<i></i>') +
+        '<span><b>' + U.esc(p.title) + '</b>' + (p.price ? '<em>' + U.esc(p.price) + ' ' + U.esc(p.sub || '') + '</em>' : '') + '</span></a>';
+    }).join('') + '</div>';
+  }
+  var mapEl = $('#map'), map = null;
   if (mapEl && window.L && pins.length) {
-    var map = L.map(mapEl, { scrollWheelZoom: true, zoomControl: true });
+    map = L.map(mapEl, { scrollWheelZoom: true, zoomControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     // Every home stays on the map. Where price pins would overlap, the extra ones show as small
     // dots (see declutter below), and they turn back into prices as you zoom in.
     layer = L.layerGroup().addTo(map);
     var bounds = [];
-    pins.forEach(function (p) {
-      var m = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: pinHtml(p), iconSize: [0, 0] }), riseOnHover: true });
-      m.bindPopup(function () { return popupHtml(p); }, { closeButton: false, minWidth: 220, maxWidth: 220 });
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k];
+      var m = L.marker([g.lat, g.lng], { icon: L.divIcon({ className: '', html: groupHtml(members(g)), iconSize: [0, 0] }), riseOnHover: true });
+      m.bindPopup(function () {
+        var list = members(g);
+        return list.length === 1 ? popupHtml(list[0]) : listPopupHtml(list);
+      }, { closeButton: false, minWidth: 220, maxWidth: 260 });
       layer.addLayer(m);
-      markers[p.id] = m;
-      bounds.push([p.lat, p.lng]);
+      markers[k] = m;
+      g.ids.forEach(function (id) { bounds.push([g.lat, g.lng]); });
     });
     // Frame the main group of homes: the 85% closest to the middle, so a few far-off listings
     // (Niles, the river farms) do not zoom the map out and squeeze everything near campus together.
@@ -59,53 +96,60 @@
     scheduleDeclutter();
   }
 
-  // Show a price pin for each home unless it would overlap one already placed; those become
-  // dots. Homes earlier in the list (the current sort order) get their price shown first.
+  // Show a price pin for each spot unless it would overlap one already placed; those become
+  // dots. Spots whose homes come earlier in the list (the current sort order) go first.
   var shownAs = {}, declutterTimer = null;
   function scheduleDeclutter() { clearTimeout(declutterTimer); declutterTimer = setTimeout(declutter, 60); }
   function declutter() {
     if (!map || !layer) return;
-    var placed = [];
+    var placed = [], done = {};
     var order = $$('.results .card').map(function (c) { return c.getAttribute('data-id'); });
     order.forEach(function (id) {
-      var m = markers[id], p = pinById[id];
-      if (!m || !p || !layer.hasLayer(m)) return;
-      var as = 'dot';
-      if (p.price) {
+      var g = groupOf[id];
+      if (!g || done[g.key]) return;
+      done[g.key] = true;
+      var m = markers[g.key], list = members(g);
+      if (!m || !list.length || !layer.hasLayer(m)) return;
+      var label = groupLabel(list), as = 'dot';
+      if (label) {
         var pt = map.latLngToContainerPoint(m.getLatLng());
-        var w = 22 + p.price.length * 8, h = 26;
+        var w = 22 + label.length * 8, h = 26;
         var box = { l: pt.x - w / 2 - 2, r: pt.x + w / 2 + 2, t: pt.y - h / 2 - 2, b: pt.y + h / 2 + 2 };
         var hit = placed.some(function (o) { return box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t; });
-        if (!hit) { placed.push(box); as = 'price'; }
+        // A spot with several homes always shows its count, so it never hides as a plain dot.
+        if (!hit || list.length > 1) { placed.push(box); as = 'price'; }
       }
-      var key = as + (p.price || '');
-      if (shownAs[id] === key) return;
-      shownAs[id] = key;
-      m.setIcon(L.divIcon({ className: '', html: as === 'price' ? pinHtml(p) : '<div class="pin-dot' + (p.price ? ' mini' : '') + '"></div>', iconSize: [0, 0] }));
-      m.setZIndexOffset(as === 'price' ? 500 : 0);
+      var key = as + label;
+      if (shownAs[g.key] === key) return;
+      shownAs[g.key] = key;
+      m.setIcon(L.divIcon({ className: '', html: as === 'price' ? groupHtml(list) : '<div class="pin-dot' + (label ? ' mini' : '') + '"></div>', iconSize: [0, 0] }));
+      m.setZIndexOffset(as === 'price' ? (list.length > 1 ? 600 : 500) : 0);
     });
   }
   function showPin(id, on) {
-    var m = markers[id];
+    if (!!hidden[id] === !on) return;
+    if (on) delete hidden[id]; else hidden[id] = true;
+    var g = groupOf[id], m = g && markers[g.key];
     if (!m || !layer) return;
-    var has = layer.hasLayer(m);
-    if (on && !has) { layer.addLayer(m); delete shownAs[id]; }
-    if (!on && has) layer.removeLayer(m);
+    var any = g.ids.some(function (x) { return !hidden[x]; }), has = layer.hasLayer(m);
+    if (any && !has) layer.addLayer(m);
+    if (!any && has) layer.removeLayer(m);
+    delete shownAs[g.key];
     scheduleDeclutter();
   }
 
   cards.forEach(function (c) {
     var id = c.getAttribute('data-id');
     var hot = function (on) {
-      var m = markers[id], p = pinById[id];
+      var g = groupOf[id], m = g && markers[g.key], p = pinById[id];
       if (!m || !p || !layer || !layer.hasLayer(m)) return;
       if (on) {
-        // Show the price even if this home is currently a dot.
+        // Show this home's price even if its spot is currently a dot or a group.
         if (p.price) m.setIcon(L.divIcon({ className: '', html: pinHtml(p).replace('class="pricepin"', 'class="pricepin hot"'), iconSize: [0, 0] }));
         else if (m._icon && m._icon.firstChild) m._icon.firstChild.classList.add('hot');
         m.setZIndexOffset(1000);
       } else {
-        delete shownAs[id];
+        delete shownAs[g.key];
         declutter();
       }
     };
