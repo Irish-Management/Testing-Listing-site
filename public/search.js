@@ -60,7 +60,11 @@
         '<span><b>' + U.esc(p.title) + '</b>' + (p.price ? '<em>' + U.esc(p.price) + ' ' + U.esc(p.sub || '') + '</em>' : '') + '</span></a>';
     }).join('') + '</div>';
   }
-  var mapEl = $('#map'), map = null;
+  var mapEl = $('#map'), map = null, area = null, areaBtn = null;
+  function inArea(c) {
+    var p = area && pinById[c.getAttribute('data-id')];
+    return !area || (p ? area.contains([p.lat, p.lng]) : false);
+  }
   if (mapEl && window.L && pins.length) {
     map = L.map(mapEl, { scrollWheelZoom: true, zoomControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
@@ -88,6 +92,32 @@
     }).slice(0, Math.max(1, Math.ceil(bounds.length * 0.85)));
     map.fitBounds(near, { padding: [30, 30], maxZoom: near.length > 1 ? 15 : 12 });
     map.on('zoomend moveend', declutter);
+    // Keep Leaflet's idea of the map size current (it only measures once, and the layout can settle later).
+    if (window.ResizeObserver) new ResizeObserver(function () { map.invalidateSize(); }).observe(mapEl);
+
+    // "Search this area": the list shows every home until the guest moves the map; then a button
+    // offers to narrow the list to the homes in view. Pins outside stay on the map.
+    areaBtn = document.createElement('button');
+    areaBtn.type = 'button';
+    areaBtn.className = 'area-btn';
+    areaBtn.textContent = 'Search this area';
+    areaBtn.hidden = true;
+    mapEl.appendChild(areaBtn);
+    L.DomEvent.disableClickPropagation(areaBtn);
+    areaBtn.addEventListener('click', function () {
+      area = map.getBounds();
+      areaBtn.hidden = true;
+      applyFilters();
+      var top = $('.results');
+      if (top && top.getBoundingClientRect().top < 0) top.scrollIntoView({ behavior: 'smooth' });
+      U.track('map_area_search', { zoom: map.getZoom() });
+    });
+    // Only moves the guest makes count: not the first framing, and not a popup nudging the map
+    // (that pans without a drag or a zoom).
+    var offer = function () { areaBtn.hidden = false; };
+    map.whenReady(function () {
+      setTimeout(function () { map.on('dragend zoomend', offer); }, 400);
+    });
   }
   function setPin(id, price, sub) {
     var p = pinById[id];
@@ -257,19 +287,27 @@
     }
     return true;
   }
-  function countMatches(s) { return cards.filter(function (c) { return matches(c, s); }).length; }
+  function countMatches(s) { return cards.filter(function (c) { return matches(c, s) && inArea(c); }).length; }
   function activeCount(s) { return (s.min != null || s.max != null ? 1 : 0) + (s.beds ? 1 : 0) + (s.baths ? 1 : 0) + (s.pets ? 1 : 0) + s.amen.length; }
 
   function applyFilters() {
     var n = 0;
     cards.forEach(function (c) {
-      var ok = matches(c, applied);
-      c.classList.toggle('filtered', !ok);
+      var ok = matches(c, applied), inside = ok && inArea(c);
+      c.classList.toggle('filtered', !inside);
       showPin(c.getAttribute('data-id'), ok);
-      if (ok) n++;
+      if (inside) n++;
     });
     var h = $('#rcount');
-    if (h) h.textContent = n + (n === 1 ? ' property' : ' properties') + ' available';
+    if (h) h.textContent = n + (n === 1 ? ' property' : ' properties') + (area ? ' in this map area' : ' available');
+    var clr = $('#area-clear');
+    if (area && !clr && h) {
+      clr = document.createElement('button');
+      clr.type = 'button'; clr.id = 'area-clear'; clr.className = 'area-clear'; clr.textContent = 'Show all homes';
+      h.insertAdjacentElement('afterend', clr);
+      clr.addEventListener('click', function () { area = null; applyFilters(); });
+    }
+    if (clr) clr.hidden = !area;
     var fc = $('#fcount'), k = activeCount(applied);
     if (fc) { fc.hidden = !k; fc.textContent = k; }
     shown = 24;
