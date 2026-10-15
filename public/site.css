@@ -110,7 +110,7 @@ p{margin:0}
 .card-photos{position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:var(--chip)}
 .track{display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
 .track::-webkit-scrollbar{display:none}
-.track img{flex:0 0 100%;width:100%;height:100%;object-fit:cover;scroll-snap-align:start}
+.track img{flex:0 0 100%;background:var(--chip);width:100%;height:100%;object-fit:cover;scroll-snap-align:start}
 .car-btn{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:999px;border:0;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s;color:var(--ink)}
 .car-btn.prev{left:10px}.car-btn.next{right:10px}
 .card:hover .car-btn,.car-btn:focus-visible{opacity:1}

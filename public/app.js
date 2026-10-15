@@ -70,14 +70,25 @@
       if (c._init) return; c._init = true;
       var track = $('.track', c), dots = $$('.dots span', c);
       if (!track) return;
+      // Photos 2 to 5 wait in data- attributes until the guest shows interest in this card.
+      var loadRest = function () {
+        $$('img[data-src]', track).forEach(function (im) {
+          if (im.dataset.sizes) im.sizes = im.dataset.sizes;
+          if (im.dataset.srcset) im.srcset = im.dataset.srcset;
+          im.src = im.dataset.src;
+          im.removeAttribute('data-src');
+        });
+      };
+      ['pointerenter', 'touchstart', 'focusin'].forEach(function (ev) { c.addEventListener(ev, loadRest, { once: true, passive: true }); });
       var go = function (dir, e) {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault(); e.stopPropagation(); loadRest();
         track.scrollBy({ left: dir * track.clientWidth, behavior: 'smooth' });
       };
       var prev = $('.prev', c), next = $('.next', c);
       if (prev) prev.addEventListener('click', function (e) { go(-1, e); });
       if (next) next.addEventListener('click', function (e) { go(1, e); });
       track.addEventListener('scroll', function () {
+        loadRest();
         var i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
         dots.forEach(function (d, k) { d.classList.toggle('on', k === i); });
       }, { passive: true });

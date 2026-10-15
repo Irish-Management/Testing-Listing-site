@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '33'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '35'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -283,6 +283,27 @@ function footer(site) {
 
 // ---------- Shared pieces ----------
 
+// Responsive OwnerRez photos. OwnerRez serves each photo at -Medium (600px, ~150 KB) and
+// -Large (1200px, ~500 KB). The sizes hints below deliberately say "50vw" on phones so even
+// 3x screens pick the 600px file there: it still looks sharp at phone sizes and loads about
+// 3x faster. Desktops keep the 1200px file. Other URLs pass through unchanged.
+const SIZES = {
+  card: '(max-width:700px) 50vw, 300px',
+  hero: '(max-width:700px) 50vw, 640px',
+  side: '(max-width:700px) 50vw, 300px',
+  list: '(max-width:700px) 50vw, 560px',
+};
+// Same, but held in data- attributes until app.js loads them (card carousel photos 2 to 5).
+function deferredSrcAttrs(url, sizes) {
+  return srcAttrs(url, sizes).replace(/ (src|srcset|sizes)="/g, ' data-$1="');
+}
+function srcAttrs(url, sizes) {
+  const u = String(url || '');
+  if (!/^https:\/\/uc\.orez\.io\/i\/[^/?#]+-Large$/.test(u)) return ' src="' + esc(u) + '"';
+  const med = u.replace(/-Large$/, '-Medium');
+  return ' src="' + esc(med) + '" srcset="' + esc(med) + ' 600w, ' + esc(u) + ' 1200w" sizes="' + sizes + '"';
+}
+
 // Canonical path of a home's page.
 export function homePath(p) { return '/property/' + p.id + '/' + slug(p.title); }
 
@@ -316,7 +337,7 @@ function card(p, q, eager) {
   const hide = q && q.collection && !cols.includes(q.collection.slug);
   return '<a class="card' + (hide ? ' filtered' : '') + '" href="' + esc(propHref(p, q)) + '" data-cols="' + cols.join(' ') + '" data-id="' + p.id + '" data-price="' + nightly + '" data-beds="' + p.bedrooms + '" data-rating="' + (p.rating || 0) + '" data-reviews="' + (p.reviews || 0) + '" data-baths="' + (p.bathrooms || 0) + '" data-pets="' + (p.maxPets || 0) + '" data-amen="' + esc((p.amen || []).join(' ')) + '">' +
     '<div class="card-photos" data-carousel>' +
-      '<div class="track">' + photos.map((u, i) => '<img src="' + esc(u) + '" alt="' + (i ? '' : esc(p.title)) + '"' + (eager && !i ? '' : ' loading="lazy"') + ' decoding="async">').join('') + '</div>' +
+      '<div class="track">' + photos.map((u, i) => '<img' + (i ? deferredSrcAttrs(u, SIZES.card) : srcAttrs(u, SIZES.card)) + ' alt="' + (i ? '' : esc(p.title)) + '"' + (eager && !i ? '' : ' loading="lazy"') + ' decoding="async">').join('') + '</div>' +
       (photos.length > 1
         ? '<button type="button" class="car-btn prev" aria-label="Previous photo" tabindex="-1">' + ICON.left + '</button><button type="button" class="car-btn next" aria-label="Next photo" tabindex="-1">' + ICON.right + '</button>' +
           '<div class="dots" aria-hidden="true">' + photos.map((_, i) => '<span' + (i ? '' : ' class="on"') + '></span>').join('') + '</div>'
@@ -394,7 +415,7 @@ export function renderHome(site, d) {
       const h = homes[0];
       const img = h.photos && h.photos[0];
       return '<section class="wrap away"><a class="away-card" href="/listings/' + dest.slug + '">' +
-        (img ? '<img src="' + esc(img) + '" alt="' + esc(h.title) + '" loading="lazy">' : '') +
+        (img ? '<img' + srcAttrs(img, SIZES.list) + ' alt="' + esc(h.title) + '" loading="lazy">' : '') +
         '<div><p class="sub">' + esc(dest.eyebrow) + '</p><h2>' + esc(dest.title) + '</h2><p class="muted">' + esc(dest.intro) + '</p>' +
         '<span class="btn-dark big">' + (homes.length === 1 ? 'See the ' + esc(dest.name.replace(/ Getaway$/, '')) + ' condo' : 'See ' + homes.length + ' homes') + '</span></div></a></section>';
     }).join('') +
@@ -411,7 +432,7 @@ export function renderSearch(site, d) {
   const q = d.q;
   const pins = d.props.filter((p) => p.lat != null && p.lng != null).map((p) => ({
     id: p.id, lat: p.lat, lng: p.lng, title: p.title, href: propHref(p, q.searched ? q : null),
-    price: q.searched ? null : (p.stay ? money(p.stay.price) : null), photo: (p.photos || [])[0] || '',
+    price: q.searched ? null : (p.stay ? money(p.stay.price) : null), photo: ((p.photos || [])[0] || '').replace(/^(https:\/\/uc\.orez\.io\/i\/[^/?#]+)-Large$/, '$1-Medium'),
     sub: q.searched ? '' : (p.stay ? 'for ' + plural(p.stay.nights, 'night') + ', ' + shortDate(p.stay.arrival) + ' \u2013 ' + shortDate(p.stay.departure) : ''),
   }));
   const have = new Set();
@@ -524,12 +545,12 @@ export function renderProperty(site, d) {
   const reviewCount = l ? l.reviewCount : 0;
 
   const gallery = '<section class="gallery" id="photos" data-count="' + photos.length + '">' +
-    [0, 1, 2, 3, 4].map((i) => '<button type="button" class="ph ph' + i + '" data-photo="' + i + '">' + (photos[i] ? '<img src="' + esc(photos[i].url) + '" alt="' + esc(photos[i].caption || (i ? '' : p.title)) + '"' + (i ? ' loading="lazy"' : ' fetchpriority="high"') + '>' : '') + '</button>').join('') +
+    [0, 1, 2, 3, 4].map((i) => '<button type="button" class="ph ph' + i + '" data-photo="' + i + '">' + (photos[i] ? '<img' + srcAttrs(photos[i].url, i ? SIZES.side : SIZES.hero) + ' alt="' + esc(photos[i].caption || (i ? '' : p.title)) + '"' + (i ? ' loading="lazy"' : ' fetchpriority="high"') + '>' : '') + '</button>').join('') +
     (photos.length > 1 ? '<button type="button" class="chip gallery-all" data-photo="0">View all ' + photos.length + ' photos</button>' : '') +
     '</section>';
 
   const photosDialog = '<dialog class="modal photos-modal" id="photos-modal" aria-label="All photos"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>' + esc(p.title) + '</strong><span></span></div>' +
-    '<div class="photo-list">' + photos.map((ph, i) => '<figure id="photo-' + i + '"><img src="' + esc(ph.url) + '" alt="' + esc(ph.caption || '') + '" loading="lazy">' + (ph.caption ? '<figcaption>' + esc(ph.caption) + '</figcaption>' : '') + '</figure>').join('') + '</div></dialog>';
+    '<div class="photo-list">' + photos.map((ph, i) => '<figure id="photo-' + i + '"><img' + srcAttrs(ph.url, SIZES.list) + ' alt="' + esc(ph.caption || '') + '" loading="lazy">' + (ph.caption ? '<figcaption>' + esc(ph.caption) + '</figcaption>' : '') + '</figure>').join('') + '</div></dialog>';
 
   const facts = [plural(p.bedrooms, 'bedroom')];
   if (l && l.beds) facts.push(plural(l.beds, 'bed'));
@@ -691,7 +712,7 @@ function eventCard(e, total, site) {
     if (e.nearCampus) perks.push(e.nearCampus + ' within a mile of campus');
   }
   const photos = e.open && e.photos && e.photos.length
-    ? '<div class="ev-photos">' + e.photos.map((ph) => '<img src="' + esc(ph.url) + '" alt="" loading="lazy" title="' + esc(ph.title) + '">').join('') +
+    ? '<div class="ev-photos">' + e.photos.map((ph) => '<img' + srcAttrs(ph.url, SIZES.card) + ' alt="" loading="lazy" title="' + esc(ph.title) + '">').join('') +
       (e.open > e.photos.length ? '<span>+' + (e.open - e.photos.length) + '</span>' : '') + '</div>'
     : '';
 
