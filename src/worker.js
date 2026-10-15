@@ -8,6 +8,7 @@ import {
 } from './pages.js';
 import { EVENTS, EVENT_GROUPS } from './events.js';
 import { POSTS } from './posts.js';
+import { LEGACY_HOMES, LEGACY_PAGES, LEGACY_PREFIXES, LEGACY_POST_IDS } from './redirects.js';
 
 const API = 'https://api.ownerrez.com';
 const UA = 'IrishManagementDirectBooking/1.0';
@@ -690,6 +691,30 @@ async function thankYouBooking(env, ctx, url) {
   }
 }
 
+// Old WordPress addresses (see src/redirects.js) and www -> the main domain. Returns a 301 or null.
+async function redirectLegacy(env, ctx, url, path, s) {
+  const go = (to) => Response.redirect(s.origin + to, 301);
+  if (env.SITE_URL) {
+    const main = new URL(env.SITE_URL);
+    if (url.hostname === 'www.' + main.hostname) return Response.redirect(main.origin + url.pathname + url.search, 301);
+  }
+  if (path === '/' && url.searchParams.has('p')) {
+    const slug = LEGACY_POST_IDS[url.searchParams.get('p')];
+    if (slug) return go('/' + slug);
+  }
+  const m = path.match(/^\/property\/([^/]+)$/);
+  if (m && !/^\d+$/.test(m[1])) {
+    let slug = m[1];
+    try { slug = decodeURIComponent(slug); } catch (e) { /* keep as is */ }
+    const id = LEGACY_HOMES[slug.toLowerCase()];
+    const home = id ? (await getProperties(env, ctx)).find((p) => p.id === id) : null;
+    return go(home ? homePath(home) : '/s');
+  }
+  if (LEGACY_PAGES[path]) return go(LEGACY_PAGES[path]);
+  if (LEGACY_PREFIXES.some((pre) => path === pre || path.startsWith(pre + '/'))) return go('/');
+  return null;
+}
+
 function homeFacts(homes) {
   return {
     total: homes.length,
@@ -766,6 +791,9 @@ async function route(request, env, ctx) {
     } });
   }
   s.track = trackingConfig(env, s, /(?:^|;\s*)im_track=1(?:;|$)/.test(request.headers.get('Cookie') || ''));
+
+  const legacy = request.method === 'GET' || request.method === 'HEAD' ? await redirectLegacy(env, ctx, url, path, s) : null;
+  if (legacy) return legacy;
 
   if (path === '/robots.txt') return text(robotsTxt(s));
   if (path === '/terms') return html(renderTerms(s));

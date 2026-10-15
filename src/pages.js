@@ -288,7 +288,7 @@ function header(site, opts) {
 
 function footer(site) {
   const contact = (site.phone || site.email)
-    ? '<div class="contactbar"><div class="fwrap"><strong>Contact Us</strong>' +
+    ? '<div class="contactbar" id="contact"><div class="fwrap"><strong>Contact Us</strong>' +
       (site.phone ? '<a href="tel:' + esc(site.sms) + '">' + ICON.phoneSm + esc(site.phone) + '</a>' : '') +
       (site.email ? '<a href="mailto:' + esc(site.email) + '">' + ICON.mail + esc(site.email) + '</a>' : '') +
       '</div></div>'

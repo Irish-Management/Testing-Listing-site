@@ -40,6 +40,14 @@ names. "Walk to the stadium" is set from the home's map location (within about a
 
 The design and copy match the previous Wander site at listings.irishmgmt.com.
 
+## Redirects from the old site
+
+`src/redirects.js` maps the WordPress site's addresses to this one (all 301s): old home pages
+(`/property/<slug>/`) to the same home by OwnerRez ID, old pages such as `/contact/` and
+`/listings/pet-friendly/`, retired sections (`/partners`, `/faq`), and WordPress short links (`/?p=123`).
+Blog posts keep their old addresses. When `SITE_URL` is set, `www.` redirects to the main domain. To send an
+unmatched old home page to a specific home, add `'old-slug': propertyId` to `LEGACY_HOMES`.
+
 ## Card snapshot
 
 Card photos, ratings, and the "next available stay" price on each card come from a snapshot
