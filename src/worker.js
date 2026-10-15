@@ -4,7 +4,7 @@
 
 import {
   renderHome, renderSearch, renderProperty, renderThanks, renderNotFound, renderError,
-  renderReviews, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS, DESTINATIONS,
+  renderReviews, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS, DESTINATIONS, homePath,
 } from './pages.js';
 import { EVENTS, EVENT_GROUPS } from './events.js';
 
@@ -554,6 +554,10 @@ function site(env, url) {
     instagram: env.INSTAGRAM_URL || '',
     facebook: env.FACEBOOK_URL || '',
     origin: (env.SITE_URL || url.origin).replace(/\/$/, ''),
+    // Search engines may index the site only on its production domain (SITE_URL). On the
+    // workers.dev test address every page says noindex, so the test copy never competes
+    // with the live site.
+    indexable: !!env.SITE_URL && url.origin === env.SITE_URL.replace(/\/$/, ''),
     leadDays: leadDays(env),
     inquiryWidget: (env.INQUIRY_WIDGET_ID || '').trim(),
   };
@@ -635,11 +639,68 @@ async function handleBook(env, ctx, request, url) {
   }
 }
 
+function homeFacts(homes) {
+  return {
+    total: homes.length,
+    nearCampus: homes.filter((p) => p.tags.includes('< 1 mile from campus')).length,
+    bigGroups: homes.filter((p) => (p.maxGuests || 0) >= 12).length,
+    maxSleeps: homes.reduce((m, p) => Math.max(m, p.maxGuests || 0), 0),
+    petHomes: homes.filter((p) => p.maxPets > 0).length,
+  };
+}
+
+function text(body, type) {
+  return new Response(body, { headers: { 'Content-Type': (type || 'text/plain') + '; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+}
+
+// robots.txt: open to search engines and AI search assistants on the production domain only.
+function robotsTxt(s) {
+  if (!s.indexable) return '# Test site: not for search engines. The live site is ' + (s.origin || '') + '\nUser-agent: *\nDisallow: /\n';
+  const ai = ['OAI-SearchBot', 'ChatGPT-User', 'GPTBot', 'PerplexityBot', 'Perplexity-User', 'ClaudeBot', 'Claude-SearchBot', 'Claude-User', 'Google-Extended', 'Applebot-Extended', 'Bingbot'];
+  return 'User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /__refresh\nDisallow: /thank-you\n\n' +
+    ai.map((b) => 'User-agent: ' + b + '\nAllow: /\nDisallow: /api/\n').join('\n') +
+    '\nSitemap: ' + s.origin + '/sitemap.xml\n';
+}
+
+function sitemapXml(s, props) {
+  const paths = ['/', '/s', '/listings/big-dates', '/reviews', '/terms', '/privacy-policy']
+    .concat(COLLECTIONS.map((c) => '/listings/' + c.slug))
+    .concat(DESTINATIONS.filter((d) => props.some((p) => p.state === d.state)).map((d) => '/listings/' + d.slug))
+    .concat(props.map(homePath));
+  const xmlEsc = (u) => u.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    paths.map((p) => '  <url><loc>' + xmlEsc(s.origin + p) + '</loc></url>').join('\n') + '\n</urlset>\n';
+}
+
+// llms.txt: a plain summary of the business and every home for AI assistants (llmstxt.org).
+function llmsTxt(s, homes, away, rating) {
+  const f = homeFacts(homes);
+  const line = (p) => '- [' + p.title + '](' + s.origin + homePath(p) + '): ' + [p.city && p.city + ', ' + p.state, p.bedrooms + ' bedrooms', p.bathrooms + ' baths', 'sleeps ' + p.maxGuests, p.maxPets ? 'pets allowed' : '', p.reviews ? p.rating.toFixed(2) + ' stars from ' + p.reviews + ' reviews' : ''].filter(Boolean).join(', ');
+  return '# ' + s.name + '\n\n' +
+    '> Vacation rentals near the University of Notre Dame in South Bend, Indiana, managed by a local team and booked direct. Homes for football weekends, graduation, family visits, and longer stays.\n\n' +
+    '## Key facts\n\n' +
+    '- ' + f.total + ' homes in the South Bend area (South Bend and Mishawaka, Indiana, and Niles, Michigan); ' + f.nearCampus + ' are within a mile of campus and Notre Dame Stadium.\n' +
+    '- ' + f.bigGroups + ' homes sleep 12 or more guests; the largest sleeps up to ' + f.maxSleeps + '. ' + f.petHomes + ' homes allow pets.\n' +
+    (rating && rating.count ? '- Guests rate our homes ' + rating.average.toFixed(2) + ' out of 5 across ' + rating.count + ' reviews.\n' : '') +
+    '- Book online with live availability and pricing. Prices are shown before taxes; checkout is a secure payment page with the rental agreement.\n' +
+    '- Booking direct means booking with the local team that manages the home, without booking site guest service fees.\n' +
+    '- Contact: ' + [s.phone && 'phone or text ' + s.phone, s.email && 'email ' + s.email].filter(Boolean).join(', ') + '. 24/7 guest support.\n\n' +
+    '## Browse\n\n' +
+    '- [All homes near Notre Dame](' + s.origin + '/s): map, filters, and live prices\n' +
+    COLLECTIONS.map((c) => '- [' + c.name + '](' + s.origin + '/listings/' + c.slug + ')').join('\n') + '\n' +
+    '- [Big Weekends](' + s.origin + '/listings/big-dates): Notre Dame football weekends and graduation, with live availability\n' +
+    away.map((a) => '- [' + a.dest.name + '](' + s.origin + '/listings/' + a.dest.slug + '): ' + a.dest.intro).join('\n') + (away.length ? '\n' : '') +
+    '- [Guest reviews](' + s.origin + '/reviews)\n\n' +
+    '## Homes\n\n' + homes.map(line).join('\n') + '\n' +
+    (away.length ? '\n## Beyond South Bend\n\n' + away.map((a) => a.homes.map(line).join('\n')).join('\n') + '\n' : '');
+}
+
 async function route(request, env, ctx) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const s = site(env, url);
 
+  if (path === '/robots.txt') return text(robotsTxt(s));
   if (path === '/terms') return html(renderTerms(s));
   if (path === '/privacy-policy' || path === '/privacy') return html(renderPrivacy(s));
   if (path === '/thank-you') return html(renderThanks(s));
@@ -661,7 +722,7 @@ async function route(request, env, ctx) {
     const homes = local(all);
     const away = DESTINATIONS.map((d) => ({ dest: d, homes: all.filter((p) => p.state === d.state) })).filter((x) => x.homes.length);
     const recent = ((snap && snap.reviews) || []).filter((r) => r.stars >= 4 && r.text.length > 10).slice(0, 4);
-    return html(renderHome(s, { props: homes.slice(0, 10), total: homes.length, rating: siteRating(props, snap), reviews: recent, away }));
+    return html(renderHome(s, { props: homes.slice(0, 10), total: homes.length, rating: siteRating(props, snap), reviews: recent, away, facts: homeFacts(homes) }));
   }
 
   if (path === '/listings' && request.method === 'GET') return Response.redirect(url.origin + '/s' + url.search, 301);
@@ -731,6 +792,17 @@ async function route(request, env, ctx) {
     const names = Object.fromEntries(props.map((p) => [p.id, p.title]));
     const list = ((snap && snap.reviews) || []).filter((r) => names[r.propertyId]).map((r) => Object.assign({}, r, { property: names[r.propertyId] }));
     return html(renderReviews(s, { rating: siteRating(props, snap), reviews: list }));
+  }
+
+  if (path === '/sitemap.xml' && request.method === 'GET') {
+    return text(sitemapXml(s, await getProperties(env, ctx)), 'application/xml');
+  }
+
+  if (path === '/llms.txt' && request.method === 'GET') {
+    const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
+    const all = withSnapshot(props, snap);
+    const away = DESTINATIONS.map((d) => ({ dest: d, homes: all.filter((p) => p.state === d.state) })).filter((x) => x.homes.length);
+    return text(llmsTxt(s, local(all), away, siteRating(props, snap)));
   }
 
   if (path === '/sitemap' && request.method === 'GET') {

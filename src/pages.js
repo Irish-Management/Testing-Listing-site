@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '24'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '25'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -146,14 +146,45 @@ function stars(n, size) {
 
 // ---------- Layout ----------
 
+function abs(site, u) { return !u ? '' : /^https?:/.test(u) ? u : site.origin + u; }
+
+// Sitewide business details for search engines and AI assistants (schema.org).
+function orgSchema(site) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'LodgingBusiness',
+    '@id': site.origin + '/#business',
+    name: site.name,
+    url: site.origin + '/',
+    logo: site.origin + '/img/logo.png',
+    image: site.origin + '/img/hero.jpg',
+    description: 'Irish Management offers vacation rentals near the University of Notre Dame in South Bend, Indiana, for football weekends, graduation, family visits, and longer stays, booked direct with the local team.',
+    telephone: site.phone || undefined,
+    email: site.email || undefined,
+    address: { '@type': 'PostalAddress', streetAddress: '1539 N Ironwood Dr', addressLocality: 'South Bend', addressRegion: 'IN', postalCode: '46635', addressCountry: 'US' },
+    areaServed: ['South Bend, IN', 'Notre Dame, IN', 'Mishawaka, IN', 'Niles, MI'],
+    sameAs: [site.instagram, site.facebook].filter(Boolean),
+  };
+}
+
 function layout(site, title, body, opts = {}) {
   const desc = opts.description || 'Notre Dame vacation rentals, booked direct with Irish Management. Stay minutes from campus and Notre Dame Stadium and skip the extra fees.';
+  const canonical = opts.canonical ? site.origin + opts.canonical : '';
+  const noindex = !site.indexable || opts.noindex;
+  const image = abs(site, opts.image || '/img/hero.jpg');
+  const schemas = [orgSchema(site)].concat(opts.schema || []);
   return '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<title>' + esc(title) + '</title>' +
     '<meta name="description" content="' + esc(desc) + '">' +
+    (canonical ? '<link rel="canonical" href="' + esc(canonical) + '">' : '') +
+    (noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="robots" content="index, follow, max-image-preview:large">') +
+    '<meta property="og:type" content="' + (opts.ogType || 'website') + '"><meta property="og:site_name" content="' + esc(site.name) + '">' +
     '<meta property="og:title" content="' + esc(title) + '"><meta property="og:description" content="' + esc(desc) + '">' +
-    (opts.image ? '<meta property="og:image" content="' + esc(opts.image) + '">' : '') +
+    (canonical ? '<meta property="og:url" content="' + esc(canonical) + '">' : '') +
+    '<meta property="og:image" content="' + esc(image) + '">' +
+    '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + esc(title) + '"><meta name="twitter:description" content="' + esc(desc) + '"><meta name="twitter:image" content="' + esc(image) + '">' +
+    schemas.map((x) => '<script type="application/ld+json">' + json(x) + '</script>').join('') +
     '<link rel="icon" href="/img/favicon.png">' +
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
     '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap">' +
@@ -232,6 +263,9 @@ function footer(site) {
 
 // ---------- Shared pieces ----------
 
+// Canonical path of a home's page.
+export function homePath(p) { return '/property/' + p.id + '/' + slug(p.title); }
+
 function propHref(p, q) {
   const params = new URLSearchParams();
   if (q && q.arrival && q.departure) { params.set('checkin', q.arrival); params.set('checkout', q.departure); }
@@ -288,6 +322,23 @@ function reviewCard(r) {
 
 // ---------- Pages ----------
 
+// FAQ shown on the home page and given to search engines and AI assistants as FAQPage data.
+// Numbers come from the live OwnerRez data, so answers stay accurate as homes change.
+function homeFaq(site, f) {
+  const contact = [site.phone ? 'call or text ' + site.phone : '', site.email ? 'email ' + site.email : ''].filter(Boolean).join(', or ');
+  return [
+    ['How close are your homes to Notre Dame?', 'We manage ' + f.total + ' homes around South Bend, and ' + f.nearCampus + ' of them are within a mile of campus and Notre Dame Stadium. Most of the rest are a short drive away. Open Filters on the all homes page and choose Homes <1 Mile from Campus to see the closest.'],
+    ['Do you have homes for large groups?', 'Yes. ' + f.bigGroups + ' of our homes sleep 12 or more guests, and the largest sleeps up to ' + f.maxSleeps + '. They are a good fit for football weekends, graduation, reunions, and team trips.'],
+    ['Can I book a Notre Dame football weekend or graduation weekend?', 'Yes. Our Big Weekends page lists upcoming home football games and graduation weekend, with how many homes are still open for each. Big weekends tend to fill early, so it is worth booking ahead.'],
+    ['Are pets allowed?', f.petHomes ? f.petHomes + ' of our homes welcome pets. Turn on Pets allowed in Filters to see them. Pet fees may apply and are shown before you pay.' : 'Pet policies vary by home and are listed on each home\u2019s page.'],
+    ['Why book direct instead of Airbnb or Vrbo?', 'When you book here you book with the local team that manages the home, and you skip the guest service fees that booking sites add. Questions go straight to our South Bend team.'],
+    ['What is included in the price?', 'The price shown on each home is rent and fees before taxes. State and local lodging taxes are added at checkout, and you see the full total before you pay.'],
+    ['How do check-in and check-out work?', 'Check-in and check-out times are listed on each home\u2019s page. After you book we send check-in details before you arrive.'],
+    ['What is the cancellation policy?', 'It varies by home. Each home\u2019s page and the checkout page show the cancellation policy for your dates.'],
+    ['How do I contact Irish Management?', 'Our team offers 24/7 guest support. ' + (contact ? 'You can ' + contact + '.' : '')],
+  ];
+}
+
 export function renderHome(site, d) {
   const r = d.rating;
   const body =
@@ -318,11 +369,15 @@ export function renderHome(site, d) {
         '<div><p class="sub">' + esc(dest.eyebrow) + '</p><h2>' + esc(dest.title) + '</h2><p class="muted">' + esc(dest.intro) + '</p>' +
         '<span class="btn-dark big">' + (homes.length === 1 ? 'See the ' + esc(dest.name.replace(/ Getaway$/, '')) + ' condo' : 'See ' + homes.length + ' homes') + '</span></div></a></section>';
     }).join('') +
+    (d.facts ? '<section class="wrap faq" id="faq"><h2>Frequently asked questions</h2><div class="faq-list">' +
+      homeFaq(site, d.facts).map(([q, a]) => '<details><summary>' + esc(q) + '</summary><p>' + esc(a) + '</p></details>').join('') + '</div></section>' : '') +
     '<section class="direct wrap"><h2>Get more when you book direct</h2><div class="direct-grid">' +
       PROMISES.map(([i, t, s]) => '<div><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + s + '</p></div>').join('') + '</div></section>' +
     '<section class="band cta" style="--bg:url(/img/come-stay.jpg)"><div class="band-in"><p class="sub">From Our South Bend Team</p><h2>Come Stay in Notre Dame Country</h2><a class="chip" href="/s">Browse Homes</a></div></section>';
 
-  return layout(site, 'Notre Dame Vacation Rentals | Book Direct - ' + site.name, body, { bodyClass: 'home', image: '/img/hero.jpg' });
+  const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: site.name, url: site.origin + '/' }];
+  if (d.facts) schema.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: homeFaq(site, d.facts).map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
+  return layout(site, 'Notre Dame Vacation Rentals | Book Direct - ' + site.name, body, { canonical: '/', schema, bodyClass: 'home', image: '/img/hero.jpg' });
 }
 
 export function renderSearch(site, d) {
@@ -366,9 +421,65 @@ export function renderSearch(site, d) {
     '</section><aside class="mapcol"><div id="map" class="map" aria-label="Map of homes"></div></aside></div>' +
     filterModal +
     '<script type="application/json" id="pins">' + json(pins) + '</script>';
+  const path = q.dest ? '/listings/' + q.dest.slug : col ? '/listings/' + col.slug : '/s';
+  // Searches with dates or filters are endless variations of the same page; keep them out of search results.
+  const filtered = q.searched || q.guests || q.pets || q.bedrooms || q.sort;
+  const listed = col ? d.props.filter((p) => collectionsOf(p).includes(col.slug)) : d.props;
+  const itemList = filtered ? [] : [{
+    '@context': 'https://schema.org', '@type': 'ItemList',
+    name: (q.dest ? q.dest.name : col ? col.name : 'Vacation rentals near Notre Dame') + ' | ' + site.name,
+    numberOfItems: listed.length,
+    itemListElement: listed.slice(0, 100).map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: site.origin + propHref(p), name: p.title })),
+  }];
   const title = (q.dest ? q.dest.name : col ? col.name : 'All homes') + (q.searched ? ', open ' + rangeLabel(q.arrival, q.departure) : '');
   return layout(site, title + ' | ' + site.name, body,
-    { headerSearch: true, q, filters, map: true, script: 'search', bodyClass: 'searchpage', description: q.dest ? q.dest.intro : col ? col.description : undefined });
+    { headerSearch: true, q, filters, map: true, script: 'search', bodyClass: 'searchpage', description: q.dest ? q.dest.intro : col ? col.description : 'Browse ' + d.props.length + ' vacation rentals near Notre Dame and South Bend with live availability, prices, and a map. Book direct with Irish Management.',
+      canonical: path, noindex: filtered, schema: itemList });
+}
+
+// schema.org VacationRental for one home (the format Google documents for vacation rentals).
+// Location is the rounded map point and city only; the street address is never published.
+function bedDetails(sleep) {
+  const beds = {};
+  (sleep || []).forEach((r) => String(r.beds || '').split(',').forEach((part) => {
+    const m = part.trim().match(/^(\d+)\s+(.+?)s?$/i);
+    if (m) { const type = m[2].replace(/\s*beds?$/i, '').trim(); beds[type] = (beds[type] || 0) + Number(m[1]); }
+  }));
+  return Object.keys(beds).map((type) => ({ '@type': 'BedDetails', numberOfBeds: beds[type], typeOfBed: type.charAt(0).toUpperCase() + type.slice(1) }));
+}
+
+function rentalSchema(site, p, l, photos, reviews) {
+  const amen = [];
+  if (l) l.amenities.forEach((c) => c.items.forEach((i) => { if (!amen.includes(i)) amen.push(i); }));
+  const x = {
+    '@context': 'https://schema.org',
+    '@type': 'VacationRental',
+    '@id': site.origin + '/property/' + p.id + '#rental',
+    name: p.title,
+    identifier: String(p.id),
+    url: site.origin + '/property/' + p.id + '/' + slug(p.title),
+    description: l ? (l.summary || l.description || '').slice(0, 1000) : undefined,
+    image: photos.slice(0, 12).map((ph) => ph.url),
+    brand: { '@id': site.origin + '/#business' },
+    address: { '@type': 'PostalAddress', addressLocality: p.city, addressRegion: p.state, postalCode: p.zip || undefined, addressCountry: 'US' },
+    latitude: p.lat != null ? p.lat : undefined,
+    longitude: p.lng != null ? p.lng : undefined,
+    checkinTime: p.checkIn ? p.checkIn + ':00' : undefined,
+    checkoutTime: p.checkOut ? p.checkOut + ':00' : undefined,
+    containsPlace: {
+      '@type': 'Accommodation',
+      additionalType: 'EntirePlace',
+      numberOfBedrooms: p.bedrooms,
+      numberOfBathroomsTotal: p.bathrooms,
+      occupancy: { '@type': 'QuantitativeValue', value: (l && l.sleepsMax) || p.maxGuests },
+      bed: bedDetails(l && l.sleep),
+      amenityFeature: amen.slice(0, 60).map((name) => ({ '@type': 'LocationFeatureSpecification', name, value: true })),
+      petsAllowed: p.maxPets > 0,
+    },
+  };
+  if (l && l.reviewCount) x.aggregateRating = { '@type': 'AggregateRating', ratingValue: Number(l.reviewAverage.toFixed(2)), ratingCount: l.reviewCount, reviewCount: l.reviewCount, bestRating: 5 };
+  if (reviews && reviews.length) x.review = reviews.slice(0, 5).map((r) => ({ '@type': 'Review', reviewRating: { '@type': 'Rating', ratingValue: r.stars, bestRating: 5 }, author: { '@type': 'Person', name: r.name }, reviewBody: r.text }));
+  return x;
 }
 
 export function renderProperty(site, d) {
@@ -502,6 +613,7 @@ export function renderProperty(site, d) {
     '<script type="application/json" id="boot">' + json(boot) + '</script>';
 
   return layout(site, p.title + ' | ' + site.name, body, {
+    canonical: '/property/' + p.id + '/' + slug(p.title), schema: [rentalSchema(site, p, l, photos, reviews)],
     headerSearch: true, textBar: true, q: { arrival: d.stay.arrival, departure: d.stay.departure }, map: !!where, script: 'property', bodyClass: 'proppage',
     description: (l && (l.summary || l.headline)) || undefined, image: photos[0] && photos[0].url,
   });
@@ -580,6 +692,7 @@ export function renderBigDates(site, d) {
         '<div class="bd-cta-btns">' + (site.sms ? '<a class="btn-dark big" href="sms:' + esc(site.sms) + '">Text us</a>' : '') + '<a class="chip" href="/s">Browse all homes</a></div></section>' +
     '</div>';
   return layout(site, 'Big Weekends in South Bend | ' + site.name, body, {
+    canonical: '/listings/big-dates',
     description: 'Book Notre Dame football weekends, graduation, and other big South Bend weekends direct with Irish Management. See which homes are still open for each date.',
     image: '/img/welcome.jpg',
   });
@@ -591,17 +704,17 @@ export function renderReviews(site, d) {
     (r.count ? '<p class="big">' + r.average.toFixed(2) + '</p>' + stars(5, 16) + '<p class="count">' + r.count.toLocaleString('en-US') + ' reviews</p>' : '') +
     '<div class="rgrid">' + d.reviews.map((x) => reviewCard(x).replace('<div class="rmeta">', '<div class="rmeta"><p class="muted small">' + esc(x.property) + '</p>')).join('') + '</div>' +
     '<div class="center-btn"><a class="chip" href="/s">Browse Homes</a></div></section>';
-  return layout(site, 'Guest reviews | ' + site.name, body);
+  return layout(site, 'Guest reviews | ' + site.name, body, { canonical: '/reviews', description: 'Read reviews from guests who stayed in Irish Management vacation rentals near Notre Dame.' });
 }
 
 export function renderSitemap(site, d) {
   const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li>' + COLLECTIONS.map((c) => '<li><a href="/listings/' + c.slug + '">' + esc(c.name) + '</a></li>').join('') + '<li><a href="/listings/big-dates">Big Weekends</a></li><li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
     '<h2>Homes</h2><ul>' + d.props.map((p) => '<li><a href="' + esc(propHref(p)) + '">' + esc(p.title) + '</a></li>').join('') + '</ul></section>';
-  return layout(site, 'Sitemap | ' + site.name, body);
+  return layout(site, 'Sitemap | ' + site.name, body, { canonical: '/sitemap' });
 }
 
-function legal(site, title, sections) {
-  return layout(site, title + ' | ' + site.name, '<article class="wrap legal"><h1>' + esc(title) + '</h1>' + sections + '</article>');
+function legal(site, title, sections, path) {
+  return layout(site, title + ' | ' + site.name, '<article class="wrap legal"><h1>' + esc(title) + '</h1>' + sections + '</article>', { canonical: path });
 }
 
 const contactBlock = (site) => '<p>' + esc(site.name) + '<br>1539 N Ironwood Dr, South Bend, IN 46635' +
@@ -620,7 +733,7 @@ export function renderTerms(site) {
     '<h2>7. Intellectual Property</h2><p>All content on this site, including text, images, logos, and design, is owned by or licensed to Irish Management or our service providers and is protected by intellectual property laws. You may not copy, modify, or redistribute it without our written permission.</p>' +
     '<h2>8. Privacy</h2><p>Our handling of personal information is described in our <a href="/privacy-policy">Privacy Policy</a>. By using this site or making a booking, you acknowledge that policy.</p>' +
     '<h2>9. Changes to These Terms</h2><p>We may update these Terms from time to time. Material changes will take effect when posted; continued use of the site after that point constitutes acceptance of the updated Terms.</p>' +
-    '<h2>10. Contact</h2><p>For questions about these Terms or your reservation:</p>' + contactBlock(site));
+    '<h2>10. Contact</h2><p>For questions about these Terms or your reservation:</p>' + contactBlock(site), '/terms');
 }
 
 export function renderPrivacy(site) {
@@ -644,20 +757,20 @@ export function renderPrivacy(site) {
     '<h2>7. Children\'s Privacy</h2><p>This site is not directed to children under 13, and we do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us so we can delete it.</p>' +
     '<h2>8. Security</h2><p>We use reasonable administrative, technical, and physical safeguards designed to protect personal information. No system is perfectly secure, however, and we cannot guarantee the security of any information you transmit to us.</p>' +
     '<h2>9. Contact Us</h2><p>For questions or requests about this Privacy Policy or our data practices:</p>' + contactBlock(site) +
-    '<h2>10. Changes to This Privacy Policy</h2><p>We may update this Privacy Policy from time to time. Material changes will be communicated through the site or by email where appropriate.</p>');
+    '<h2>10. Changes to This Privacy Policy</h2><p>We may update this Privacy Policy from time to time. Material changes will be communicated through the site or by email where appropriate.</p>', '/privacy-policy');
 }
 
 export function renderThanks(site) {
   return layout(site, 'Reservation received | ' + site.name,
-    '<div class="wrap centerpage"><h1>Your reservation is in</h1><p>Check your email for your confirmation. We will send check-in details and your door code before you arrive.</p><a class="chip" href="/">Back to all stays</a></div>');
+    '<div class="wrap centerpage"><h1>Your reservation is in</h1><p>Check your email for your confirmation. We will send check-in details and your door code before you arrive.</p><a class="chip" href="/">Back to all stays</a></div>', { noindex: true });
 }
 
 export function renderNotFound(site) {
   return layout(site, 'Page not found | ' + site.name,
-    '<div class="wrap centerpage"><h1>We could not find that page</h1><p>The home may no longer be listed. Browse our current stays instead.</p><a class="chip" href="/s">See all stays</a></div>');
+    '<div class="wrap centerpage"><h1>We could not find that page</h1><p>The home may no longer be listed. Browse our current stays instead.</p><a class="chip" href="/s">See all stays</a></div>', { noindex: true });
 }
 
 export function renderError(site, title, message) {
   return layout(site, title + ' | ' + site.name,
-    '<div class="wrap centerpage"><h1>' + esc(title) + '</h1><p>' + esc(message) + '</p><a class="chip" href="/">Try again</a></div>');
+    '<div class="wrap centerpage"><h1>' + esc(title) + '</h1><p>' + esc(message) + '</p><a class="chip" href="/">Try again</a></div>', { noindex: true });
 }

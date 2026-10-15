@@ -83,6 +83,23 @@ These follow OwnerRez's published API docs, but couldn't be tested against your 
    Reserve creates a quote and sends the guest to OwnerRez's payment page, where they enter
    their name, email, and phone (OwnerRez does not pre-fill that page).
 
+## Search engines and AI assistants
+
+- Every page has a canonical URL, Open Graph and Twitter tags, and schema.org JSON-LD: the business
+  (`LodgingBusiness`) on every page, `VacationRental` on each home (photos, rooms, beds, amenities,
+  location rounded to the block, rating and reviews), an `ItemList` on browse pages, and an FAQ on the
+  home page (`FAQPage`, with numbers from live OwnerRez data).
+- `/sitemap.xml`, `/robots.txt`, and `/llms.txt` (a plain summary for AI assistants) are generated from
+  OwnerRez, so new homes appear automatically.
+- Date searches and filtered views are `noindex` and point their canonical at the plain page.
+- **The site only allows indexing on its production domain.** Indexing turns on when the request comes
+  from `SITE_URL`; on the workers.dev test address every page is `noindex` and robots.txt disallows
+  everything, so the test copy never competes with the live site.
+
+Going live: add the custom domain to the Worker, set `SITE_URL` to it, make sure Cloudflare's
+"Block AI bots" / AI crawler controls allow AI search crawlers on that domain, then submit
+`/sitemap.xml` in Google Search Console and Bing Webmaster Tools.
+
 ## Limits and costs
 
 - OwnerRez allows 300 API requests every 5 minutes per IP. The site caches property data for

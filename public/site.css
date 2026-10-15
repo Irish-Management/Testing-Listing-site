@@ -466,3 +466,12 @@ dialog.filters-modal[open]{display:flex}
 .dest-intro{margin:0 0 24px}
 .dest-intro .sub{color:var(--gold);font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
 .dest-intro h2{font-size:26px;line-height:32px;margin:6px 0 8px}
+/* FAQ */
+.faq{padding-top:56px;padding-bottom:16px;max-width:880px}
+.faq h2{font-size:30px;line-height:36px;letter-spacing:-.01em;margin-bottom:20px}
+.faq-list details{border-bottom:1px solid var(--line)}
+.faq-list summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 0;font-weight:600;color:var(--ink);font-size:17px}
+.faq-list summary::-webkit-details-marker{display:none}
+.faq-list summary::after{content:"+";font-size:24px;font-weight:400;color:var(--muted);flex:0 0 auto}
+.faq-list details[open] summary::after{content:"\2212"}
+.faq-list p{color:var(--muted);padding:0 0 18px;max-width:720px}
