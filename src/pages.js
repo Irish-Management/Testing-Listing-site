@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '19'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '20'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -457,7 +457,8 @@ export function renderProperty(site, d) {
         '<div class="two"><label>First name<input name="first_name" autocomplete="given-name" required></label><label>Last name<input name="last_name" autocomplete="family-name" required></label></div>' +
         '<label>Email<input name="email" type="email" autocomplete="email" required></label>' +
         '<label>Phone<input name="phone" type="tel" autocomplete="tel"></label>' +
-        '<div class="hp" aria-hidden="true"><label>Company<input name="company" tabindex="-1" autocomplete="off"></label></div>' +
+        // Spam trap: hidden from people. Named so browser autofill never fills it (it filled "company").
+        '<div class="hp" aria-hidden="true"><label>Leave this field empty<input name="hp_check" tabindex="-1" autocomplete="off" data-1p-ignore data-lpignore="true"></label></div>' +
         '<button class="btn-gold" type="submit" id="checkout">Continue to secure checkout</button>' +
         '<p class="err" id="book-err" role="alert"></p>' +
       '</form>' +

@@ -286,7 +286,7 @@
     e.preventDefault();
     var f = el.form, err = $('#book-err'), btn = $('#checkout');
     var data = { property_id: boot.id, arrival: state.arrival, departure: state.departure, adults: state.guests, children: 0, pets: state.pets };
-    ['first_name', 'last_name', 'email', 'phone', 'company'].forEach(function (k) { data[k] = f.elements[k].value.trim(); });
+    ['first_name', 'last_name', 'email', 'phone', 'hp_check'].forEach(function (k) { data[k] = f.elements[k].value.trim(); });
     if (!data.first_name || !data.last_name) { err.textContent = 'Enter your first and last name.'; return; }
     if (!data.email || !f.elements.email.checkValidity()) { err.textContent = 'Enter a valid email address.'; return; }
     err.textContent = '';

@@ -575,7 +575,8 @@ function searchParams(url) {
 async function handleBook(env, ctx, request, url) {
   const b = await request.json().catch(() => null);
   if (!b) return json({ error: 'Send the booking details as JSON.' }, 400);
-  if (b.company) return json({ error: 'Request blocked.' }, 400); // hidden honeypot field
+  // Hidden spam-trap field that only bots fill in. ("company" is ignored now: browser autofill filled it.)
+  if (b.hp_check) return json({ error: 'We could not send that request. Please refresh the page and try again, or text us to book.' }, 400);
 
   const id = int(b.property_id, 0);
   const adults = int(b.adults, 0);
