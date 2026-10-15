@@ -85,8 +85,8 @@ export const LEGACY_HOMES = {
   "walk-to-nd-luxury-2br-2ba-condo-balcony-parking": 486877, // walk-to-nd-luxury-2br-2ba-condo-balcony-parking
 };
 
-// Old home pages with no clear match yet. Add an entry above (old slug: property ID) to send one
-// to a specific home; until then they go to the all-homes page.
+// Old home pages for homes we no longer manage (confirmed by the owner, October 2026). They
+// intentionally go to the all-homes page.
 //   807-twyckenham
 //   artists-vintage-home-5-mins-from-nd-campus
 //   beautifully-renovated-home-corner-of-nd-and-angela
