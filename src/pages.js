@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '32'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '33'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -115,6 +115,8 @@ export const ICON = {
   camera: svg('<path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/>', 24, 1.6),
   brush: svg('<path d="M20 4 10 14"/><path d="M10 14c-3 0-5 2-5 4.5 0 .8-.6 1.5-2 1.5 1.5 1 3 1 4.5 1C10 21 12 18 10 14z"/><path d="m14 10 2 2"/>', 24, 1.6),
   clipboard: svg('<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="m9 14 2 2 4-4"/>', 24, 1.6),
+  eye: svg('<path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', 24, 1.6),
+  check: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>', 18, 2),
   chart: svg('<path d="M4 20V4M4 20h16"/><path d="m7 15 4-4 3 3 5-6"/>', 24, 1.6),
   home: svg('<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>', 22, 1.6),
   note: svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9h8M8 13h5M14 20v-3a2 2 0 0 1 2-2h4"/>', 22, 1.6),
@@ -760,6 +762,15 @@ const OWNER_SERVICES = [
   ['clipboard', 'Product Check and Restock', 'We do an extensive inventory check and restock after every guest checks out.'],
 ];
 
+// Home Watch: for owners who are not renting their home.
+const HOME_WATCH = [
+  'Scheduled walkthroughs, inside and out',
+  'Extra checks after storms, freezes, and power outages',
+  'Early eyes on leaks, HVAC trouble, and pests',
+  'Vendor and contractor coordination while you are away',
+  'A photo report after every visit',
+];
+
 const OWNER_REVIEWS = [
   ['Bob M.', 'South Bend', 'Irish Management has been an amazing partner for my property in South Bend. Incredibly responsive, proactive and detailed in managing everything from day-to-day maintenance to renter arrivals to subcontractor work. Highly recommend!'],
   ['Sally D.', 'South Bend', 'Very easy to work with and pay great attention to detail. Prompt with communication. Overall we’ve had a fantastic experience working with Irish Management. Highly recommended!'],
@@ -785,6 +796,11 @@ export function renderManagement(site, d) {
       OWNER_VALUES.map(([i, t, x]) => '<div><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + x + '</p></div>').join('') + '</div></section>' +
     '<section class="wrap mg-services"><h2>Everything your rental needs, handled</h2><div class="mg-grid">' +
       OWNER_SERVICES.map(([i, t, x]) => '<div class="mg-card"><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + x + '</p></div>').join('') + '</div></section>' +
+    '<section class="wrap mg-watch"><div class="mg-watch-in"><div>' +
+      '<span class="ibox">' + ICON.eye + '</span><p class="sub">Not renting? We have you covered</p><h2>Home Watch Services</h2>' +
+      '<p class="muted">For owners who don’t want to rent but still want hands-off home ownership. Whether it’s a second home, a game-day getaway you keep for yourself, or a house between tenants, our local team keeps an eye on it so you don’t have to.</p>' +
+      go('Ask About Home Watch', 'btn-dark big mg-inline') + '</div>' +
+      '<ul class="mg-checks">' + HOME_WATCH.map((x) => '<li>' + ICON.check + '<span>' + x + '</span></li>').join('') + '</ul></div></section>' +
     '<section class="mg-stats"><div class="wrap"><p class="sub">Team of Superhosts</p><div class="mg-stat-grid">' +
       stats.map(([n, l]) => '<div><strong>' + n + '</strong><span>' + l + '</span></div>').join('') + '</div></div></section>' +
     '<section class="wrap away mg-nd"><div class="away-card"><img src="/img/mgmt-home.jpg" alt="A large home managed by Irish Management" loading="lazy">' +
@@ -799,7 +815,7 @@ export function renderManagement(site, d) {
       go('Get Started', 'btn-dark big mg-inline') + '</section>';
   return layout(site, 'Vacation Rental Management in South Bend | ' + site.name, body, {
     canonical: '/management', image: '/img/mgmt-hero.jpg',
-    description: 'Full-service Airbnb and vacation rental management near Notre Dame and South Bend. Housekeeping, maintenance, 24/7 guest support, and revenue management from Irish Management.',
+    description: 'Full-service Airbnb and vacation rental management near Notre Dame and South Bend. Housekeeping, maintenance, 24/7 guest support, revenue management, and Home Watch for homes that are not rented, from Irish Management.',
   });
 }
 

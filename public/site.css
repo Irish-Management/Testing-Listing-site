@@ -488,6 +488,15 @@ dialog.filters-modal[open]{display:flex}
 .mg-card{border:1px solid var(--line);border-radius:12px;padding:24px}
 .mg-card h3{font-size:18px;line-height:24px;margin:18px 0 8px}
 .mg-card p{color:var(--muted);font-size:15px;line-height:22px}
+.mg-watch{padding-bottom:64px}
+.mg-watch-in{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:48px;align-items:center;background:var(--light);border-radius:16px;padding:40px}
+.mg-watch .ibox{background:#fff}
+.mg-watch .sub{color:var(--gold);font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase;margin-top:20px}
+.mg-watch h2{font-size:30px;line-height:36px;letter-spacing:-.01em;margin:8px 0 12px}
+.mg-checks{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.mg-checks li{display:flex;gap:12px;align-items:flex-start;background:#fff;border-radius:12px;padding:14px 16px;line-height:22px}
+.mg-checks svg{flex:none;color:var(--ok);margin-top:2px}
+@media (max-width:820px){.mg-watch-in{grid-template-columns:1fr;gap:24px;padding:24px}.mg-watch h2{font-size:24px;line-height:28px}}
 .mg-stats{background:var(--navy);color:var(--light);padding:48px 0;text-align:center}
 .mg-stats .sub{color:var(--sage);font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
 .mg-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin-top:24px}
