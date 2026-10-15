@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '10'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '12'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -116,6 +116,7 @@ function layout(site, title, body, opts = {}) {
     '<main id="main">' + body + '</main>' + footer(site) +
     '<script type="application/json" id="site-boot">' + json({ leadDays: site.leadDays }) + '</script>' +
     (opts.map ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>' : '') +
+    (opts.cluster ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>' : '') +
     '<script src="/app.js?v=' + V + '"></script>' +
     (opts.script ? '<script src="/' + opts.script + '.js?v=' + V + '"></script>' : '') +
     '</body></html>';
@@ -203,7 +204,8 @@ function priceLine(p, q) {
 
 function card(p, q, eager) {
   const photos = (p.photos || []).slice(0, 5);
-  return '<a class="card" href="' + esc(propHref(p, q)) + '" data-id="' + p.id + '">' +
+  const nightly = !(q && q.searched) && p.stay ? (p.stay.price / p.stay.nights).toFixed(2) : '';
+  return '<a class="card" href="' + esc(propHref(p, q)) + '" data-id="' + p.id + '" data-price="' + nightly + '" data-beds="' + p.bedrooms + '" data-rating="' + (p.rating || 0) + '" data-reviews="' + (p.reviews || 0) + '">' +
     '<div class="card-photos" data-carousel>' +
       '<div class="track">' + photos.map((u, i) => '<img src="' + esc(u) + '" alt="' + (i ? '' : esc(p.title)) + '"' + (eager && !i ? '' : ' loading="lazy"') + ' decoding="async">').join('') + '</div>' +
       (photos.length > 1
@@ -265,23 +267,28 @@ export function renderSearch(site, d) {
   const pins = d.props.filter((p) => p.lat != null && p.lng != null).map((p) => ({
     id: p.id, lat: p.lat, lng: p.lng, title: p.title, href: propHref(p, q.searched ? q : null),
     price: q.searched ? null : (p.stay ? money(p.stay.price) : null), photo: (p.photos || [])[0] || '',
+    sub: q.searched ? '' : (p.stay ? 'for ' + plural(p.stay.nights, 'night') + ', ' + shortDate(p.stay.arrival) + ' \u2013 ' + shortDate(p.stay.departure) : ''),
   }));
   const filters = '<div class="filters-wrap"><button type="button" class="filters-btn" data-filters aria-expanded="false">' + ICON.sliders + 'Filters' + (q.bedrooms ? ' (1)' : '') + '</button>' +
     '<form class="pop filters-pop" action="/s" method="get" hidden>' +
-      ['checkin', 'checkout', 'guests', 'pets'].map((k) => { const v = { checkin: q.arrival, checkout: q.departure, guests: q.guests, pets: q.pets }[k]; return v ? '<input type="hidden" name="' + k + '" value="' + esc(v) + '">' : ''; }).join('') +
+      ['checkin', 'checkout', 'guests', 'pets', 'sort'].map((k) => { const v = { checkin: q.arrival, checkout: q.departure, guests: q.guests, pets: q.pets, sort: q.sort }[k]; return v ? '<input type="hidden" name="' + k + '" value="' + esc(v) + '">' : ''; }).join('') +
       '<p class="pop-title">Bedrooms</p><div class="seg">' +
       [0, 1, 2, 3, 4, 5, 6].map((n) => '<label><input type="radio" name="bedrooms" value="' + (n || '') + '"' + ((q.bedrooms || 0) === n ? ' checked' : '') + '><span>' + (n ? n + '+' : 'Any') + '</span></label>').join('') +
       '</div><div class="pop-actions"><a href="/s' + (q.arrival ? '?checkin=' + esc(q.arrival) + '&amp;checkout=' + esc(q.departure) : '') + '" class="linkbtn">Clear</a><button class="btn-dark" type="submit">Show homes</button></div></form></div>';
   const body =
     '<div class="search-layout"><section class="results">' +
       (d.notice ? '<p class="notice">' + esc(d.notice) + '</p>' : '') +
-      '<h1 class="eyebrow-h">' + plural(d.props.length, 'property', 'properties') + ' available</h1>' +
+      '<div class="results-head"><h1 class="eyebrow-h">' + plural(d.props.length, 'property', 'properties') + ' available</h1>' +
+      (d.props.length > 1 ? '<label class="sort">Sort by <select id="sort">' +
+        [['', 'Recommended'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['bedrooms', 'Most bedrooms'], ['rating', 'Top rated']]
+          .map(([v, l]) => '<option value="' + v + '"' + (q.sort === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label>' : '') + '</div>' +
+      (q.searched ? '' : '<p class="muted small sort-note"' + (q.sort && q.sort.startsWith('price') ? '' : ' hidden') + '>Without dates, homes are sorted by price per night for their next available stay.</p>') +
       (d.props.length ? '<div class="grid2">' + d.props.map((p, i) => card(p, q, i < 4)).join('') + '</div>'
         : '<div class="empty"><p>No homes match those dates. Try different dates, or text us and we will help you find a fit.</p><a class="chip" href="/s">Clear search</a></div>') +
     '</section><aside class="mapcol"><div id="map" class="map" aria-label="Map of homes"></div></aside></div>' +
     '<script type="application/json" id="pins">' + json(pins) + '</script>';
   return layout(site, (q.searched ? 'Homes open ' + rangeLabel(q.arrival, q.departure) : 'All homes') + ' | ' + site.name, body,
-    { headerSearch: true, q, filters, map: true, script: 'search', bodyClass: 'searchpage' });
+    { headerSearch: true, q, filters, map: true, cluster: true, script: 'search', bodyClass: 'searchpage' });
 }
 
 export function renderProperty(site, d) {

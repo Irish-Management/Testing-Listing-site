@@ -486,6 +486,26 @@ function site(env, url) {
   };
 }
 
+const SORTS = ['price_asc', 'price_desc', 'bedrooms', 'rating'];
+
+// Price sorting without dates compares price per night, since each home's next available
+// stay has a different length. Homes with no open stay go last.
+function sortHomes(homes, sort) {
+  const nightly = (p) => (p.stay ? p.stay.price / p.stay.nights : null);
+  const byPrice = (dir) => (a, b) => {
+    const x = nightly(a), y = nightly(b);
+    if (x == null || y == null) return (x == null) - (y == null);
+    return dir * (x - y);
+  };
+  const cmp = {
+    price_asc: byPrice(1),
+    price_desc: byPrice(-1),
+    bedrooms: (a, b) => b.bedrooms - a.bedrooms,
+    rating: (a, b) => (b.rating - a.rating) || (b.reviews - a.reviews),
+  }[sort];
+  return cmp ? homes.slice().sort(cmp) : homes;
+}
+
 function searchParams(url) {
   const arrival = url.searchParams.get('checkin') || '';
   const departure = url.searchParams.get('checkout') || '';
@@ -494,6 +514,7 @@ function searchParams(url) {
     guests: Math.max(0, int(url.searchParams.get('guests'), 0)),
     pets: Math.max(0, int(url.searchParams.get('pets'), 0)),
     bedrooms: Math.max(0, int(url.searchParams.get('bedrooms'), 0)),
+    sort: SORTS.includes(url.searchParams.get('sort')) ? url.searchParams.get('sort') : '',
   };
 }
 
@@ -602,6 +623,8 @@ async function route(request, env, ctx) {
     if (q.guests) homes = homes.filter((p) => !p.maxGuests || p.maxGuests >= q.guests);
     if (q.pets) homes = homes.filter((p) => p.maxPets >= q.pets);
     if (q.bedrooms) homes = homes.filter((p) => p.bedrooms >= q.bedrooms);
+    // With dates, prices load in the browser, so search.js sorts by price there.
+    if (!q.searched || !q.sort.startsWith('price')) homes = sortHomes(homes, q.sort);
     return html(renderSearch(s, { props: homes, q, notice }));
   }
 

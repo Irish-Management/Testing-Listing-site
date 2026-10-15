@@ -356,3 +356,11 @@ dialog.photos-modal{width:min(1000px,100vw);max-height:100vh;height:100vh;border
 #ask-modal{width:min(620px,calc(100vw - 32px))}
 .ask-widget{min-height:560px}
 .ask-widget iframe{width:100%;border:0}
+.results-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+.results-head .eyebrow-h{margin:0}
+.sort{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.sort select{height:40px;padding:0 32px 0 14px;border:1px solid var(--line);border-radius:999px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23202020' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;-webkit-appearance:none;appearance:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer}
+.sort-note{margin:-12px 0 20px}
+.mpop .mp{display:block;padding:0 12px 10px;font-weight:400;color:var(--muted)}
+.mpop .mp b{color:var(--ink)}
+.pricepin.cluster{background:var(--navy);color:#fff}
