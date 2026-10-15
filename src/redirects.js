@@ -4,6 +4,7 @@
 // Old home pages (/property/<slug>/) -> OwnerRez property ID on this site. Matched by name in
 // October 2026. Homes not listed here (or no longer listed) go to the all-homes page.
 export const LEGACY_HOMES = {
+  "luxury-nd-retreat-3bd-2-5ba-balcony": 485031, // golden-view-3bd-2-5ba-balcony (confirmed by owner)
   "2b-2ba-near-nd-private-balcony-walk-to-campus": 484603, // 2b-2ba-near-nd-private-balcony-walk-to-campus
   "2bd-2ba-condo-w-beach-access-pool-isla-del-sol": 417507, // 2bd-2ba-condo-w-beach-access-pool-isla-del-sol
   "38-acres-of-luxury-9br-indoor-pool-gym-near-nd": 395725, // 38-acres-of-luxury-9br-indoor-pool-gym-near-nd
@@ -92,7 +93,6 @@ export const LEGACY_HOMES = {
 //   entire-home-blocks-from-notre-dame-sleeps-8
 //   family-home-walkable-to-notre-dame
 //   luxury-estate-with-stadium-tdj-views-sleeps-20
-//   luxury-nd-retreat-3bd-2-5ba-balcony
 //   luxury-notre-dame-home-the-lucky-charm
 //   the-isles-townhome-located-6-blocks-from-nd
 //   the-shamrock-retreat-movie-nights-kids-nook-10
