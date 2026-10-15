@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '27'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '29'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -59,7 +59,13 @@ export const AMENITY_FILTERS = [
 // stayirish.com addresses) opens that page with the collection selected.
 export const COLLECTIONS = [
   { slug: 'unique', tag: 'The Unique Collection', name: 'The Unique Collection',
-    description: 'Explore our unique collection of homes with Irish Management. Discover one-of-a-kind properties that offer distinctive charm and special features for any stay.' },
+    description: 'Explore our unique collection of homes with Irish Management. Discover one-of-a-kind properties that offer distinctive charm and special features for any stay.',
+    // Optional page header: script title image, lead line, blurb, and photo.
+    intro: {
+      script: '/img/unique-script.png', photo: '/img/unique-collection.jpg', photoAlt: 'Timber-framed bar with stained glass windows',
+      lead: 'Explore Our <em>Unique Collection</em>',
+      text: 'Welcome to a curated showcase of Irish Management’s most distinctive properties. Our <em>Unique Collection</em> features signature homes that stand out for their exceptional character, design, and locations. Each property in this collection is carefully selected to offer an unforgettable experience that combines luxury, comfort, and a touch of the extraordinary. From historical landmarks to modern architectural marvels, discover the perfect backdrop for your next getaway. Immerse yourself in elegance and exclusivity with our <em>Unique Collection</em>, where every stay is a journey beyond the ordinary.',
+    } },
   { slug: 'large-groups', tag: 'Large Groups', name: 'Large Groups',
     description: 'Discover your ideal group getaway with Irish Management! Our large vacation homes feature spacious living areas, multiple bedrooms, and fully-equipped kitchens, perfect for families, friends, or corporate retreats.' },
   { slug: 'walking-campus', tag: '< 1 Mile from Campus', name: 'Homes <1 Mile from Campus',
@@ -411,11 +417,17 @@ export function renderSearch(site, d) {
     '</div><div class="modal-foot"><button type="button" class="linkbtn" id="f-clear">Clear all</button><button type="button" class="btn-dark big" id="f-apply">Show homes</button></div></dialog>';
   const col = q.collection;
   const shownCount = col ? d.props.filter((p) => collectionsOf(p).includes(col.slug)).length : d.props.length;
-  const body =
+  // Collection header (trusted copy from COLLECTIONS); search.js hides it if the guest switches collections.
+  const ci = col && col.intro;
+  const colIntro = ci ? '<header class="col-intro" data-col-intro="' + col.slug + '"><div>' +
+      '<h1><img src="' + ci.script + '" alt="' + esc(col.name) + '" width="529" height="144"></h1>' +
+      '<p class="lead">' + ci.lead + '</p><p>' + ci.text + '</p></div>' +
+      (ci.photo ? '<img class="col-photo" src="' + ci.photo + '" alt="' + esc(ci.photoAlt || '') + '">' : '') + '</header>' : '';
+  const body = colIntro +
     '<div class="search-layout"><section class="results" data-collection="' + (col ? col.slug : '') + '">' +
       (d.notice ? '<p class="notice">' + esc(d.notice) + '</p>' : '') +
       (q.dest ? '<div class="dest-intro"><p class="sub">' + esc(q.dest.eyebrow) + '</p><h2>' + esc(q.dest.title) + '</h2><p class="muted">' + esc(q.dest.intro) + '</p></div>' : '') +
-      '<div class="results-head"><h1 class="eyebrow-h" id="rcount">' + plural(shownCount, 'property', 'properties') + ' available</h1>' +
+      '<div class="results-head"><' + (ci ? 'h2' : 'h1') + ' class="eyebrow-h" id="rcount">' + plural(shownCount, 'property', 'properties') + ' available</' + (ci ? 'h2' : 'h1') + '>' +
       (d.props.length > 1 ? '<label class="sort">Sort by <select id="sort">' +
         [['', 'Recommended'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['bedrooms', 'Most bedrooms'], ['rating', 'Top rated']]
           .map(([v, l]) => '<option value="' + v + '"' + (q.sort === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label>' : '') + '</div>' +

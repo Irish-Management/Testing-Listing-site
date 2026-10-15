@@ -452,6 +452,14 @@ dialog.filters-modal[open]{display:flex}
 .away-card .btn-dark{display:inline-flex;align-items:center;margin-top:20px}
 .away-card:hover .btn-dark{filter:brightness(1.15)}
 @media (max-width:820px){.away-card{grid-template-columns:1fr;gap:16px}.away-card h2{font-size:24px;line-height:28px}}
+.col-intro{max-width:1440px;margin:0 auto;padding:40px 32px 16px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:56px;align-items:center}
+.col-intro[hidden]{display:none}
+.col-intro h1{margin:0 0 24px;line-height:0}
+.col-intro h1 img{width:min(420px,100%);height:auto}
+.col-intro .lead{font-size:20px;line-height:28px;color:var(--ink);margin-bottom:16px}
+.col-intro p{font-size:17px;line-height:30px;color:var(--ink);max-width:680px}
+.col-photo{width:100%;aspect-ratio:629/579;object-fit:cover;border-radius:12px}
+@media (max-width:960px){.col-intro{grid-template-columns:1fr;gap:24px;padding:24px 16px 0}.col-photo{display:none}.col-intro h1 img{width:min(300px,80%)}.col-intro p{font-size:16px;line-height:26px}}
 .dest-intro{margin:0 0 24px}
 .dest-intro .sub{color:var(--gold);font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
 .dest-intro h2{font-size:26px;line-height:32px;margin:6px 0 8px}

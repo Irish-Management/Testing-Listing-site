@@ -316,6 +316,7 @@
     });
     $('#f-apply').addEventListener('click', function () {
       applied = clone(draft);
+      $$('[data-col-intro]').forEach(function (el) { el.hidden = el.getAttribute('data-col-intro') !== applied.collection; });
       syncParams({
         pmin: applied.min != null ? String(Math.round(applied.min)) : '',
         pmax: applied.max != null ? String(Math.round(applied.max)) : '',
