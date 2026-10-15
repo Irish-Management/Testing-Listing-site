@@ -2,8 +2,9 @@
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
 import { GUIDE_INTRO, NOTRE_DAME, GUIDE_SECTIONS, GETTING_AROUND, VISIT_SOUTH_BEND } from './guide.js';
+import { POSTS } from './posts.js';
 
-const V = '49'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '51'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -278,7 +279,7 @@ function header(site, opts) {
       '<nav class="menu" aria-label="Main" hidden>' +
         '<a href="/">Home</a><a href="/s">All homes</a>' +
         '<span class="menu-label">Listings</span>' + COLLECTIONS.map((c) => '<a class="sub" href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a class="sub" href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a class="sub" href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') +
-        '<span class="menu-sep" aria-hidden="true"></span><a href="/reviews">Guest reviews</a><a href="/area-guide">Area guide</a><a href="/management">Property management</a>' +
+        '<span class="menu-sep" aria-hidden="true"></span><a href="/reviews">Guest reviews</a><a href="/area-guide">Area guide</a><a href="/blog">Blog</a><a href="/management">Property management</a>' +
         (site.sms ? '<a href="sms:' + esc(site.sms) + '">Text us</a>' : '') +
         (site.email ? '<a href="mailto:' + esc(site.email) + '">Email us</a>' : '') +
       '</nav></div>' +
@@ -303,7 +304,7 @@ function footer(site) {
     : '';
   return '<footer class="site-footer">' + signup + contact +
     '<div class="fwrap fgrid"><div><img src="/img/logo.png" alt="' + esc(site.name) + '" width="32" height="32"></div>' +
-      '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') + '<a href="/area-guide">Area guide</a></div>' +
+      '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') + '<a href="/area-guide">Area guide</a><a href="/blog">Blog</a></div>' +
       '<div><h2>Owners</h2><a href="/management">Property management</a></div>' +
       (social ? '<div><h2>Social</h2>' + social + '</div>' : '') + '</div></div>' +
     '<div class="fbottom"><div class="fwrap"><span>&copy; ' + new Date().getUTCFullYear() + ' ' + esc(site.name) + '</span>' +
@@ -921,8 +922,52 @@ export function renderAreaGuide(site, d) {
   });
 }
 
+// ---------- Blog ----------
+
+// Posts written for property owners end with a management call to action; the rest invite a booking.
+const OWNER_POSTS = new Set([
+  'building-a-more-connected-real-estate-experience',
+  'how-irish-management-handles-guest-relations-so-you-dont-have-to',
+  'why-professional-property-management-matters-for-short-term-rental-owners',
+]);
+export function findPost(slug) { return POSTS.find((p) => p.slug === slug) || null; }
+export function postBySlugOrOld(slug) { return POSTS.find((p) => p.slug === slug || p.oldSlug === slug) || null; }
+const longDate = (iso) => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const postCard = (p) => '<a class="b-card" href="/' + p.slug + '">' + (p.image ? '<img src="' + p.image + '" alt="" loading="lazy">' : '') +
+  '<div><p class="b-meta">' + (OWNER_POSTS.has(p.slug) ? 'For owners' : 'For guests') + ' &middot; ' + longDate(p.date) + '</p><h3>' + esc(p.title) + '</h3><p class="b-ex">' + esc(p.excerpt) + '</p></div></a>';
+
+export function renderBlog(site) {
+  const body = '<div class="wrap b-index"><p class="g-eyebrow">Blog</p><h1>News and guides from Irish Management</h1>' +
+    '<p class="muted b-lead">Trip planning tips for South Bend and Notre Dame, plus insights for rental owners.</p>' +
+    '<div class="b-grid">' + POSTS.map(postCard).join('') + '</div></div>';
+  return layout(site, 'Blog | ' + site.name, body, {
+    canonical: '/blog', description: 'Notre Dame trip planning tips, South Bend guides, and short-term rental insights from the Irish Management team.',
+    schema: [{ '@context': 'https://schema.org', '@type': 'Blog', name: site.name + ' Blog', url: site.origin + '/blog',
+      blogPost: POSTS.map((p) => ({ '@type': 'BlogPosting', headline: p.title, url: site.origin + '/' + p.slug, datePublished: p.date })) }],
+  });
+}
+
+export function renderPost(site, post) {
+  const owner = OWNER_POSTS.has(post.slug);
+  const more = POSTS.filter((p) => p.slug !== post.slug).slice(0, 3);
+  const cta = owner
+    ? '<aside class="b-cta"><div><h2>Own a home near Notre Dame?</h2><p>See how our local team handles guests, cleaning, maintenance, and pricing for you.</p></div><a class="btn-dark big" href="/management">Property management</a></aside>'
+    : '<aside class="b-cta"><div><h2>Plan your South Bend stay</h2><p>Book direct with our local team and skip the booking site fees.</p></div><a class="btn-dark big" href="/s">Browse homes</a></aside>';
+  const body = '<article class="b-post">' +
+      '<header class="wrap b-head"><p class="b-meta"><a href="/blog">Blog</a> &middot; ' + longDate(post.date) + '</p><h1>' + esc(post.title) + '</h1></header>' +
+      (post.image ? '<div class="wrap"><img class="b-hero" src="' + post.image + '" alt="" fetchpriority="high"></div>' : '') +
+      '<div class="wrap"><div class="post-body">' + post.html + '</div>' + cta + '</div></article>' +
+    '<section class="wrap b-more"><h2>More from the blog</h2><div class="b-grid">' + more.map(postCard).join('') + '</div></section>';
+  return layout(site, post.title + ' | ' + site.name, body, {
+    canonical: '/' + post.slug, description: post.excerpt.slice(0, 300), image: post.image || undefined, ogType: 'article',
+    schema: [{ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title, datePublished: post.date, dateModified: post.date,
+      image: post.image ? site.origin + post.image : undefined, url: site.origin + '/' + post.slug, description: post.excerpt,
+      author: { '@type': 'Organization', name: site.name }, publisher: { '@type': 'Organization', name: site.name, logo: { '@type': 'ImageObject', url: site.origin + '/img/logo.png' } } }],
+  });
+}
+
 export function renderSitemap(site, d) {
-  const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li>' + COLLECTIONS.map((c) => '<li><a href="/listings/' + c.slug + '">' + esc(c.name) + '</a></li>').join('') + '<li><a href="/listings/big-dates">Big Weekends</a></li><li><a href="/area-guide">Area guide</a></li><li><a href="/management">Property management</a></li><li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
+  const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li>' + COLLECTIONS.map((c) => '<li><a href="/listings/' + c.slug + '">' + esc(c.name) + '</a></li>').join('') + '<li><a href="/listings/big-dates">Big Weekends</a></li><li><a href="/area-guide">Area guide</a></li><li><a href="/blog">Blog</a>: ' + POSTS.map((p) => '<a href="/' + p.slug + '">' + esc(p.title) + '</a>').join(', ') + '</li><li><a href="/management">Property management</a></li><li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
     '<h2>Homes</h2><ul>' + d.props.map((p) => '<li><a href="' + esc(propHref(p)) + '">' + esc(p.title) + '</a></li>').join('') + '</ul></section>';
   return layout(site, 'Sitemap | ' + site.name, body, { canonical: '/sitemap' });
 }

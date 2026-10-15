@@ -24,6 +24,10 @@ Pages: `/` (home), `/s` (all homes with map; accepts `?checkin=&checkout=&guests
 `/area-guide` is the South Bend area guide (restaurants, bars, ice cream, things to do, Notre Dame,
 Rides2U). Edit its places in `src/guide.js`; photos are in `public/img/guide/`.
 
+`/blog` lists the posts moved from the WordPress site. Posts live in `src/posts.js` (one entry per post,
+with its HTML) and keep their old addresses (`/<slug>`); `oldSlug` redirects a renamed post. Photos are in
+`public/img/blog/<slug>/`.
+
 `/listings/big-dates` shows upcoming big weekends (football, graduation) with live counts of open
 homes and a link to search each weekend. Edit the list in `src/events.js`; past events drop off on
 their own.

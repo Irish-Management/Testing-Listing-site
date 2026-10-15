@@ -4,9 +4,10 @@
 
 import {
   renderHome, renderSearch, renderProperty, renderThanks, renderNotFound, renderError,
-  renderReviews, renderManagement, renderAreaGuide, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS, DESTINATIONS, homePath,
+  renderReviews, renderManagement, renderAreaGuide, renderBlog, renderPost, postBySlugOrOld, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS, DESTINATIONS, homePath,
 } from './pages.js';
 import { EVENTS, EVENT_GROUPS } from './events.js';
+import { POSTS } from './posts.js';
 
 const API = 'https://api.ownerrez.com';
 const UA = 'IrishManagementDirectBooking/1.0';
@@ -713,9 +714,10 @@ function robotsTxt(s) {
 }
 
 function sitemapXml(s, props) {
-  const paths = ['/', '/s', '/listings/big-dates', '/reviews', '/area-guide', '/management', '/terms', '/privacy-policy']
+  const paths = ['/', '/s', '/listings/big-dates', '/reviews', '/area-guide', '/blog', '/management', '/terms', '/privacy-policy']
     .concat(COLLECTIONS.map((c) => '/listings/' + c.slug))
     .concat(DESTINATIONS.filter((d) => props.some((p) => p.state === d.state)).map((d) => '/listings/' + d.slug))
+    .concat(POSTS.map((p) => '/' + p.slug))
     .concat(props.map(homePath));
   const xmlEsc = (u) => u.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
@@ -742,6 +744,7 @@ function llmsTxt(s, homes, away, rating) {
     '- [Big Weekends](' + s.origin + '/listings/big-dates): Notre Dame football weekends and graduation, with live availability\n' +
     away.map((a) => '- [' + a.dest.name + '](' + s.origin + '/listings/' + a.dest.slug + '): ' + a.dest.intro).join('\n') + (away.length ? '\n' : '') +
     '- [Guest reviews](' + s.origin + '/reviews)\n\n' +
+    '## Blog\n\n' + POSTS.map((p) => '- [' + p.title + '](' + s.origin + '/' + p.slug + ')').join('\n') + '\n\n' +
     '## Homes\n\n' + homes.map(line).join('\n') + '\n' +
     (away.length ? '\n## Beyond South Bend\n\n' + away.map((a) => a.homes.map(line).join('\n')).join('\n') + '\n' : '');
 }
@@ -852,6 +855,15 @@ async function route(request, env, ctx) {
     return html(renderSearch(s, { props: homes, q, notice }));
   }
 
+  if (path === '/blog' && request.method === 'GET') return html(renderBlog(s));
+  // Blog posts keep their WordPress addresses (/<slug>); renamed posts redirect from the old slug.
+  if (/^\/[a-z0-9-]+$/.test(path) && request.method === 'GET') {
+    const post = postBySlugOrOld(path.slice(1));
+    if (post) {
+      if (post.slug !== path.slice(1)) return Response.redirect(url.origin + '/' + post.slug, 301);
+      return html(renderPost(s, post));
+    }
+  }
   if ((path === '/area-guide' || path === '/area') && request.method === 'GET') {
     const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
     const homes = local(withSnapshot(props, snap));
