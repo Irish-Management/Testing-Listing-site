@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '12'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '13'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -33,6 +33,27 @@ function paragraphs(text) {
   return String(text || '').split(/\r?\n\s*\r?\n/).map((p) => p.trim()).filter(Boolean)
     .map((p) => '<p>' + esc(p).replace(/\r?\n/g, '<br>') + '</p>').join('');
 }
+
+// Amenity filter chips on the all-homes page: [code, label, matches, unless].
+export const AMENITY_FILTERS = [
+  ['parking', 'Free parking', /free parking|driveway|garage parking/i],
+  ['workspace', 'Dedicated workspace', /workspace|desk/i],
+  ['wheelchair', 'Wheelchair accessible', /wheelchair/i, /inaccessible|not accessible|not wheelchair/i],
+  ['fireplace', 'Fireplace', /fireplace/i],
+  ['firepit', 'Fire pit', /fire ?pit/i],
+  ['garage', 'Garage', /garage/i],
+  ['hottub', 'Hot tub', /hot ?tub|jacuzzi/i],
+  ['pool', 'Pool', /pool/i, /pool table|billiard/i],
+  ['gameroom', 'Game room', /game room|pool table|billiard|ping ?pong|foosball|arcade|air hockey/i],
+  ['console', 'Game console', /game console|playstation|xbox|nintendo/i],
+  ['grill', 'Grill', /grill|bbq|barbecue/i],
+  ['washer', 'Washer & dryer', /washer|washing machine|laundry/i],
+  ['ev', 'EV charger', /ev charg|electric vehicle/i],
+  ['balcony', 'Balcony', /balcony/i],
+  ['sauna', 'Sauna', /sauna/i],
+  ['elevator', 'Elevator', /elevator/i],
+  ['kayaks', 'Kayaks', /kayak/i],
+];
 
 // ---------- Icons ----------
 
@@ -205,7 +226,7 @@ function priceLine(p, q) {
 function card(p, q, eager) {
   const photos = (p.photos || []).slice(0, 5);
   const nightly = !(q && q.searched) && p.stay ? (p.stay.price / p.stay.nights).toFixed(2) : '';
-  return '<a class="card" href="' + esc(propHref(p, q)) + '" data-id="' + p.id + '" data-price="' + nightly + '" data-beds="' + p.bedrooms + '" data-rating="' + (p.rating || 0) + '" data-reviews="' + (p.reviews || 0) + '">' +
+  return '<a class="card" href="' + esc(propHref(p, q)) + '" data-id="' + p.id + '" data-price="' + nightly + '" data-beds="' + p.bedrooms + '" data-rating="' + (p.rating || 0) + '" data-reviews="' + (p.reviews || 0) + '" data-baths="' + (p.bathrooms || 0) + '" data-pets="' + (p.maxPets || 0) + '" data-amen="' + esc((p.amen || []).join(' ')) + '">' +
     '<div class="card-photos" data-carousel>' +
       '<div class="track">' + photos.map((u, i) => '<img src="' + esc(u) + '" alt="' + (i ? '' : esc(p.title)) + '"' + (eager && !i ? '' : ' loading="lazy"') + ' decoding="async">').join('') + '</div>' +
       (photos.length > 1
@@ -269,16 +290,26 @@ export function renderSearch(site, d) {
     price: q.searched ? null : (p.stay ? money(p.stay.price) : null), photo: (p.photos || [])[0] || '',
     sub: q.searched ? '' : (p.stay ? 'for ' + plural(p.stay.nights, 'night') + ', ' + shortDate(p.stay.arrival) + ' \u2013 ' + shortDate(p.stay.departure) : ''),
   }));
-  const filters = '<div class="filters-wrap"><button type="button" class="filters-btn" data-filters aria-expanded="false">' + ICON.sliders + 'Filters' + (q.bedrooms ? ' (1)' : '') + '</button>' +
-    '<form class="pop filters-pop" action="/s" method="get" hidden>' +
-      ['checkin', 'checkout', 'guests', 'pets', 'sort'].map((k) => { const v = { checkin: q.arrival, checkout: q.departure, guests: q.guests, pets: q.pets, sort: q.sort }[k]; return v ? '<input type="hidden" name="' + k + '" value="' + esc(v) + '">' : ''; }).join('') +
-      '<p class="pop-title">Bedrooms</p><div class="seg">' +
-      [0, 1, 2, 3, 4, 5, 6].map((n) => '<label><input type="radio" name="bedrooms" value="' + (n || '') + '"' + ((q.bedrooms || 0) === n ? ' checked' : '') + '><span>' + (n ? n + '+' : 'Any') + '</span></label>').join('') +
-      '</div><div class="pop-actions"><a href="/s' + (q.arrival ? '?checkin=' + esc(q.arrival) + '&amp;checkout=' + esc(q.departure) : '') + '" class="linkbtn">Clear</a><button class="btn-dark" type="submit">Show homes</button></div></form></div>';
+  const have = new Set();
+  d.props.forEach((p) => (p.amen || []).forEach((a) => have.add(a)));
+  const chips = AMENITY_FILTERS.filter(([code]) => have.has(code));
+  const stepper = (k, label) => '<div class="step"><span>' + label + '</span><div class="stepper"><button type="button" data-f="' + k + '" data-d="-1" aria-label="Fewer ' + label.toLowerCase() + '">&minus;</button><span id="f-' + k + '">Any</span><button type="button" data-f="' + k + '" data-d="1" aria-label="More ' + label.toLowerCase() + '">+</button></div></div>';
+  const filters = '<div class="filters-wrap"><button type="button" class="filters-btn" id="filters-open" aria-haspopup="dialog">' + ICON.sliders + '<span>Filters</span><span class="fcount" id="fcount" hidden></span></button></div>';
+  const filterModal = '<dialog class="modal filters-modal" id="filters" aria-label="Filters"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Filters</strong><span></span></div>' +
+    '<div class="modal-body">' +
+      '<section class="fsec"><h3>' + (q.searched ? 'Total price' : 'Price per night') + '</h3>' +
+        '<p class="muted small">' + (q.searched ? 'Rent and fees for your dates, before taxes.' : 'Based on each home\u2019s next available stay, before taxes.') + '</p>' +
+        '<div class="hist" id="hist" aria-hidden="true"></div>' +
+        '<div class="range"><input type="range" id="pmin" aria-label="Minimum price" step="1"><input type="range" id="pmax" aria-label="Maximum price" step="1"></div>' +
+        '<div class="minmax"><label>Minimum<span class="money-in">$<input type="number" id="pmin-n" inputmode="numeric" min="0"></span></label><label>Max<span class="money-in">$<input type="number" id="pmax-n" inputmode="numeric" min="0"></span></label></div></section>' +
+      (chips.length ? '<section class="fsec"><h3>Amenities</h3><div class="chips">' + chips.map(([code, label]) => '<button type="button" class="fchip" data-amen="' + code + '" aria-pressed="false">' + esc(label) + '</button>').join('') + '</div></section>' : '') +
+      '<section class="fsec"><h3>Rooms and beds</h3>' + stepper('beds', 'Bedrooms') + stepper('baths', 'Bathrooms') + '</section>' +
+      '<section class="fsec"><h3>Accommodations</h3><label class="toggle"><span>Pets allowed</span><input type="checkbox" id="f-pets" role="switch"><span class="sw" aria-hidden="true"></span></label></section>' +
+    '</div><div class="modal-foot"><button type="button" class="linkbtn" id="f-clear">Clear all</button><button type="button" class="btn-dark big" id="f-apply">Show homes</button></div></dialog>';
   const body =
     '<div class="search-layout"><section class="results">' +
       (d.notice ? '<p class="notice">' + esc(d.notice) + '</p>' : '') +
-      '<div class="results-head"><h1 class="eyebrow-h">' + plural(d.props.length, 'property', 'properties') + ' available</h1>' +
+      '<div class="results-head"><h1 class="eyebrow-h" id="rcount">' + plural(d.props.length, 'property', 'properties') + ' available</h1>' +
       (d.props.length > 1 ? '<label class="sort">Sort by <select id="sort">' +
         [['', 'Recommended'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['bedrooms', 'Most bedrooms'], ['rating', 'Top rated']]
           .map(([v, l]) => '<option value="' + v + '"' + (q.sort === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label>' : '') + '</div>' +
@@ -286,6 +317,7 @@ export function renderSearch(site, d) {
       (d.props.length ? '<div class="grid2">' + d.props.map((p, i) => card(p, q, i < 4)).join('') + '</div>'
         : '<div class="empty"><p>No homes match those dates. Try different dates, or text us and we will help you find a fit.</p><a class="chip" href="/s">Clear search</a></div>') +
     '</section><aside class="mapcol"><div id="map" class="map" aria-label="Map of homes"></div></aside></div>' +
+    filterModal +
     '<script type="application/json" id="pins">' + json(pins) + '</script>';
   return layout(site, (q.searched ? 'Homes open ' + rangeLabel(q.arrival, q.departure) : 'All homes') + ' | ' + site.name, body,
     { headerSearch: true, q, filters, map: true, cluster: true, script: 'search', bodyClass: 'searchpage' });

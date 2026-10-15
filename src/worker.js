@@ -4,7 +4,7 @@
 
 import {
   renderHome, renderSearch, renderProperty, renderThanks, renderNotFound, renderError,
-  renderReviews, renderSitemap, renderTerms, renderPrivacy,
+  renderReviews, renderSitemap, renderTerms, renderPrivacy, AMENITY_FILTERS,
 } from './pages.js';
 
 const API = 'https://api.ownerrez.com';
@@ -374,13 +374,14 @@ async function refreshSnapshot(env) {
 
   await pool(batch, 4, async (id) => {
     const prev = snap.props[id] || {};
-    const entry = { photos: prev.photos || [], rating: prev.rating || 0, reviews: prev.reviews || 0, beds: prev.beds || 0, stay: null, at: Date.now() };
+    const entry = { photos: prev.photos || [], rating: prev.rating || 0, reviews: prev.reviews || 0, beds: prev.beds || 0, amen: prev.amen || [], stay: null, at: Date.now() };
     const l = await fetchListing(env, id).catch(() => null);
     if (l && l.available) {
       entry.photos = l.photos.slice(0, 5).map((p) => p.url);
       entry.rating = l.reviewAverage;
       entry.reviews = l.reviewCount;
       entry.beds = l.beds;
+      entry.amen = amenityCodes(l);
     }
     const days = calById[id];
     if (days) {
@@ -415,6 +416,14 @@ function siteRating(props, snap) {
   return { count, average: count ? sum / count : 0 };
 }
 
+// Short codes for the amenity filter chips, matched against the home's OwnerRez amenity names.
+function amenityCodes(l) {
+  const names = [];
+  (l.amenities || []).forEach((c) => c.items.forEach((n) => names.push(n)));
+  (l.callouts || []).forEach((n) => names.push(n));
+  return AMENITY_FILTERS.filter(([, , re, not]) => names.some((n) => re.test(n) && !(not && not.test(n)))).map(([code]) => code);
+}
+
 function withSnapshot(props, snap) {
   return props.map((p) => {
     const s = (snap && snap.props && snap.props[p.id]) || {};
@@ -422,6 +431,7 @@ function withSnapshot(props, snap) {
       photos: s.photos && s.photos.length ? s.photos : (p.photo ? [p.photo] : []),
       rating: s.rating || 0,
       reviews: s.reviews || 0,
+      amen: s.amen || [],
       stay: s.stay || null,
     });
   });
