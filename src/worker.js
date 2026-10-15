@@ -560,6 +560,7 @@ function site(env, url) {
     indexable: !!env.SITE_URL && url.origin === env.SITE_URL.replace(/\/$/, ''),
     leadDays: leadDays(env),
     inquiryWidget: (env.INQUIRY_WIDGET_ID || '').trim(),
+    newsletterForm: /^[a-f0-9]{24}$/.test((env.NEWSLETTER_FORM_ID || '').trim()) ? env.NEWSLETTER_FORM_ID.trim() : '',
   };
 }
 

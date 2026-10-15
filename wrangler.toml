@@ -30,6 +30,8 @@ MIN_LEAD_DAYS = "3"
 # OwnerRez Booking/Inquiry widget (Inquiry Only mode) behind the "Have a question for us?"
 # button. One widget serves every home; the page passes each home's property key.
 INQUIRY_WIDGET_ID = "ea48066e233740ce80c27dccc478dfc3"
+# Flodesk email signup form shown in the footer (blank hides it)
+NEWSLETTER_FORM_ID = "669da5833368e6e6407a0b26"
 # Properties whose name contains any of these (comma separated) are hidden from the site.
 EXCLUDE_NAME_CONTAINS = "Home Watch"
 # Properties with any of these OwnerRez tags (comma separated) are hidden from the site.

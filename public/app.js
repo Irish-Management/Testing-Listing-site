@@ -96,6 +96,29 @@
   };
   U.initCarousels(document);
 
+  // ---- footer email signup (Flodesk), loaded only when the footer comes near view ----
+  var fdEl = $('[data-flodesk]');
+  if (fdEl) {
+    var loadFd = function () {
+      if (window.FlodeskObject) return;
+      // Flodesk's standard loader snippet.
+      (function (w, d, t, h, s, n) {
+        w.FlodeskObject = n;
+        var fn = function () { (w[n].q = w[n].q || []).push(arguments); };
+        w[n] = w[n] || fn;
+        var f = d.getElementsByTagName(t)[0];
+        var v = '?v=' + Math.floor(new Date().getTime() / (120 * 1000)) * 60;
+        var sm = d.createElement(t); sm.async = true; sm.type = 'module'; sm.src = h + s + '.mjs' + v; f.parentNode.insertBefore(sm, f);
+        var sn = d.createElement(t); sn.async = true; sn.noModule = true; sn.src = h + s + '.js' + v; f.parentNode.insertBefore(sn, f);
+      })(window, document, 'script', 'https://assets.flodesk.com', '/universal', 'fd');
+      window.fd('form', { formId: fdEl.getAttribute('data-flodesk'), containerEl: '#' + fdEl.id });
+    };
+    if ('IntersectionObserver' in window) {
+      var fdObs = new IntersectionObserver(function (es) { if (es.some(function (e) { return e.isIntersecting; })) { fdObs.disconnect(); loadFd(); } }, { rootMargin: '600px' });
+      fdObs.observe(fdEl);
+    } else loadFd();
+  }
+
   // ---- review cards: show "Read more" only when the quote is clipped ----
   $$('.rcard').forEach(function (c) {
     var q = $('.rquote', c), b = $('.readmore', c);

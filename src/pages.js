@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '37'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '38'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -271,7 +271,12 @@ function footer(site) {
     site.instagram ? '<a href="' + esc(site.instagram) + '" rel="noopener" target="_blank">Instagram</a>' : '',
     site.facebook ? '<a href="' + esc(site.facebook) + '" rel="noopener" target="_blank">Facebook</a>' : '',
   ].filter(Boolean).join('');
-  return '<footer class="site-footer">' + contact +
+  // Flodesk email signup; app.js loads Flodesk when the footer scrolls near view.
+  const signup = site.newsletterForm
+    ? '<div class="signup"><div class="fwrap"><div><h2>Stay Connected!</h2><p>Sign up to receive the latest news and exclusive opportunities from Irish Management.</p></div>' +
+      '<div class="signup-form" id="fd-form-' + site.newsletterForm + '" data-flodesk="' + site.newsletterForm + '"></div></div></div>'
+    : '';
+  return '<footer class="site-footer">' + signup + contact +
     '<div class="fwrap fgrid"><div><img src="/img/logo.png" alt="' + esc(site.name) + '" width="32" height="32"></div>' +
       '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') + '</div>' +
       '<div><h2>Owners</h2><a href="/management">Property management</a></div>' +

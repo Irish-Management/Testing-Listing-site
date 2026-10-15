@@ -173,6 +173,12 @@ p{margin:0}
 .site-footer{background:var(--light);font-size:14px;line-height:17px}
 .fwrap{max-width:1440px;margin:0 auto;padding:0 32px}
 @media (max-width:640px){.fwrap{padding:0 16px}}
+.signup{border-bottom:1px solid var(--line)}
+.signup .fwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:24px 48px;align-items:center;padding-top:40px;padding-bottom:40px}
+.signup h2{font-size:24px;line-height:30px;letter-spacing:-.01em;color:var(--ink)}
+.signup p{color:var(--muted);font-size:15px;line-height:22px;margin-top:8px;max-width:420px}
+.signup-form{min-height:60px}
+@media (max-width:820px){.signup .fwrap{grid-template-columns:1fr}}
 .contactbar{border-bottom:1px solid var(--line)}
 .contactbar .fwrap{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;padding-top:32px;padding-bottom:32px}
 .contactbar strong{color:var(--ink)}

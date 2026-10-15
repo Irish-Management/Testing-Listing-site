@@ -59,6 +59,12 @@ set a `REFRESH_KEY` secret, then run this 8 times:
 7. **Set the payment redirect.** `SITE_URL` must match the live domain so guests land on your
    thank-you page after paying.
 
+## Email signup
+
+The footer shows the Flodesk signup form set in `NEWSLETTER_FORM_ID` (in `wrangler.toml`). Its fields,
+colors, and button are designed in Flodesk. Flodesk loads only when a visitor scrolls near the footer,
+so it does not slow down the page. Leave the ID blank to hide the signup.
+
 ## Choosing which homes show
 
 - Anything with "Home Watch" in the name is hidden. Add more words to `EXCLUDE_NAME_CONTAINS`, comma separated.
