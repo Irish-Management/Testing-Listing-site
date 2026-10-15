@@ -289,29 +289,65 @@ function findStays(days, from, count) {
 const CHARGE_LABELS = { rent: 'Rent', surcharge: 'Fees', tax: 'Taxes', tax_other: 'Taxes', surcharge_other: 'Fees' };
 const isTax = (t) => t === 'tax' || t === 'tax_other';
 
+// Surcharges set to "Categorize this as a 'rent' line item" in OwnerRez (show_as_rent). Guests see
+// these folded into rent rather than as their own line, so the site does the same.
+let rentSurcharges = null;
+async function getRentSurchargeIds(env) {
+  if (rentSurcharges && rentSurcharges.exp > Date.now()) return rentSurcharges.ids;
+  try {
+    const ids = new Set();
+    let offset = 0;
+    for (let i = 0; i < 10; i++) {
+      const r = await or(env, '/v2/surcharges', { query: { limit: 100, offset } });
+      const items = (r && r.items) || [];
+      items.forEach((x) => { if (x.show_as_rent) ids.add(x.id); });
+      if (items.length < 100) break;
+      offset += 100;
+    }
+    rentSurcharges = { ids, exp: Date.now() + 30 * 60 * 1000 };
+  } catch (e) {
+    // Keep the last known list (or none) if OwnerRez is busy; retry in a minute.
+    rentSurcharges = { ids: rentSurcharges ? rentSurcharges.ids : new Set(), exp: Date.now() + 60 * 1000 };
+  }
+  return rentSurcharges.ids;
+}
+
 async function fetchQuote(env, q) {
   // test: true prices the stay without saving a quote in OwnerRez.
-  const r = await or(env, '/v2/quotes', {
-    method: 'POST',
-    body: {
-      property_id: q.id, arrival: q.arrival, departure: q.departure,
-      adults: q.adults, children: q.children || 0, pets: q.pets || 0,
-      test: true, generate_charges: true, validate_rules: true,
-    },
-  });
-  const charges = ((r && r.charges) || [])
-    .slice()
-    .sort((a, b) => (a.position || 0) - (b.position || 0))
-    .map((c) => ({ description: c.description || CHARGE_LABELS[c.type] || 'Charge', amount: Number(c.amount) || 0, type: c.type }))
-    .filter((c) => c.amount !== 0);
+  const [r, asRent] = await Promise.all([
+    or(env, '/v2/quotes', {
+      method: 'POST',
+      body: {
+        property_id: q.id, arrival: q.arrival, departure: q.departure,
+        adults: q.adults, children: q.children || 0, pets: q.pets || 0,
+        test: true, generate_charges: true, validate_rules: true,
+      },
+    }),
+    getRentSurchargeIds(env),
+  ]);
+  const raw = ((r && r.charges) || []).slice().sort((a, b) => (a.position || 0) - (b.position || 0));
+  const charges = [];
+  let folded = 0;
+  for (const c of raw) {
+    const amount = Number(c.amount) || 0;
+    if (c.surcharge_id && asRent.has(c.surcharge_id)) { folded += amount; continue; }
+    charges.push({ description: c.description || CHARGE_LABELS[c.type] || 'Charge', amount, type: c.type });
+  }
+  if (folded) {
+    const rent = charges.find((c) => c.type === 'rent');
+    if (rent) rent.amount += folded;
+    else charges.unshift({ description: 'Rent', amount: folded, type: 'rent' });
+  }
   const round = (n) => Math.round(n * 100) / 100;
-  const total = round(charges.reduce((s, c) => s + c.amount, 0));
-  const beforeTaxes = round(charges.filter((c) => !isTax(c.type)).reduce((s, c) => s + c.amount, 0));
-  return { charges, total, beforeTaxes };
+  charges.forEach((c) => { c.amount = round(c.amount); });
+  const shown = charges.filter((c) => c.amount !== 0);
+  const total = round(shown.reduce((s, c) => s + c.amount, 0));
+  const beforeTaxes = round(shown.filter((c) => !isTax(c.type)).reduce((s, c) => s + c.amount, 0));
+  return { charges: shown, total, beforeTaxes };
 }
 
 function getQuote(env, ctx, q) {
-  const key = ['quote:v2', q.id, q.arrival, q.departure, q.adults, q.children, q.pets].join(':');
+  const key = ['quote:v3', q.id, q.arrival, q.departure, q.adults, q.children, q.pets].join(':');
   return cached(ctx, key, 300, () => fetchQuote(env, q));
 }
 
