@@ -944,7 +944,9 @@ async function route(request, env, ctx) {
     const id = int(m[1], 0);
     const props = await getProperties(env, ctx);
     const prop = props.find((p) => p.id === id);
-    if (!prop) return html(renderNotFound(s), 404);
+    // A home that is no longer listed (deactivated, Do Not Market, or Home Watch) sends visitors to all
+    // homes. Temporary (302) so the page works again if the home comes back.
+    if (!prop) return new Response(null, { status: 302, headers: { Location: s.origin + '/s', 'Cache-Control': 'no-store' } });
     const [listing, reviews] = await Promise.all([getListing(env, ctx, id), getPropertyReviews(env, ctx, id)]);
     const arrival = url.searchParams.get('checkin');
     const departure = url.searchParams.get('checkout');
