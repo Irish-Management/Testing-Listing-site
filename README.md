@@ -47,6 +47,8 @@ The design and copy match the previous Wander site at listings.irishmgmt.com.
 `/listings/pet-friendly/`, retired sections (`/partners`, `/faq`), and WordPress short links (`/?p=123`).
 Blog posts keep their old addresses. When `SITE_URL` is set, `www.` redirects to the main domain. To send an
 unmatched old home page to a specific home, add `'old-slug': propertyId` to `LEGACY_HOMES`.
+It also redirects WordPress's own addresses (old sitemaps, `/?s=` search, feeds, `/page/2`, AMP pages) and,
+once `listings.irishmgmt.com` points at this Worker, the old Wander site (`WANDER_HOMES`).
 
 ## Card snapshot
 

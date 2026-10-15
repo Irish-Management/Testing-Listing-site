@@ -8,7 +8,7 @@ import {
 } from './pages.js';
 import { EVENTS, EVENT_GROUPS } from './events.js';
 import { POSTS } from './posts.js';
-import { LEGACY_HOMES, LEGACY_PAGES, LEGACY_PREFIXES, LEGACY_POST_IDS } from './redirects.js';
+import { LEGACY_HOMES, LEGACY_PAGES, LEGACY_PREFIXES, LEGACY_POST_IDS, WANDER_HOMES } from './redirects.js';
 
 const API = 'https://api.ownerrez.com';
 const UA = 'IrishManagementDirectBooking/1.0';
@@ -694,6 +694,14 @@ async function thankYouBooking(env, ctx, url) {
 // Old WordPress addresses (see src/redirects.js) and www -> the main domain. Returns a 301 or null.
 async function redirectLegacy(env, ctx, url, path, s) {
   const go = (to) => Response.redirect(s.origin + to, 301);
+  // Old Wander site: /property/<wander id>/<slug> -> the same home; everything else -> the same page here.
+  if (url.hostname === 'listings.irishmgmt.com') {
+    const wm = path.match(/^\/property\/(-?\d+)/);
+    const id = wm ? WANDER_HOMES[wm[1]] : null;
+    const home = id ? (await getProperties(env, ctx)).find((p) => p.id === id) : null;
+    const to = wm ? (home ? homePath(home) : '/s') : path === '/s' || path === '/privacy-policy' || path === '/terms' ? path : '/';
+    return Response.redirect((env.SITE_URL || 'https://stayirish.com').replace(/\/$/, '') + to, 301);
+  }
   if (env.SITE_URL) {
     const main = new URL(env.SITE_URL);
     if (url.hostname === 'www.' + main.hostname) return Response.redirect(main.origin + url.pathname + url.search, 301);
@@ -711,6 +719,13 @@ async function redirectLegacy(env, ctx, url, path, s) {
     return go(home ? homePath(home) : '/s');
   }
   if (LEGACY_PAGES[path]) return go(LEGACY_PAGES[path]);
+  // Standard WordPress addresses: its sitemaps, site search, feeds, paging, and AMP pages.
+  if (/^\/(?:sitemap_index|wp-sitemap|[a-z]+-sitemap\d*)\.xml$/.test(path)) return go('/sitemap.xml');
+  if (path === '/' && url.searchParams.has('s')) return go('/s');
+  if (/^\/(?:comments\/)?feed(?:\/.*)?$/.test(path) || /\/feed$/.test(path)) return go('/blog');
+  if (/^\/page\/\d+$/.test(path)) return go('/blog');
+  if (path === '/home' || path === '/amp') return go('/');
+  if (/\/amp$/.test(path)) return go(path.replace(/\/amp$/, '') || '/');
   if (LEGACY_PREFIXES.some((pre) => path === pre || path.startsWith(pre + '/'))) return go('/');
   return null;
 }

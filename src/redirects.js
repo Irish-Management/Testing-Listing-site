@@ -105,7 +105,6 @@ export const LEGACY_PAGES = {
   "/events": "/listings/big-dates",
   "/contact": "/#contact",
   "/contact-us": "/#contact",
-  "/feed": "/blog",
   "/category/uncategorized": "/blog",
 };
 
@@ -121,4 +120,72 @@ export const LEGACY_POST_IDS = {
   6533: "why-professional-property-management-matters-for-short-term-rental-owners",
   6503: "booking-sites-vs-direct-booking",
   6403: "notre-dame-tailgate-tips",
+};
+
+// The old Wander site (listings.irishmgmt.com): Wander property ID -> OwnerRez property ID here.
+// Used when listings.irishmgmt.com points at this Worker. Unlisted homes go to the all-homes page.
+export const WANDER_HOMES = {
+  '674665700601628164': 401328, // 10br-sorins-estate-wpool-and-paddle-tennis-court
+  '720657129194652756': 498122, // 2517-corby-blvd
+  '674665703546029766': 401328, // 3-br-2-ba-loft-at-fr-sorins-w-paddle-tennis
+  '674665610667364150': 469513, // 3br-3ba-home-on-angela-blvd-steps-from-nd
+  '718457052166357028': 490995, // 3br1ba-updated-south-bend-retreat-close-to-nd
+  '674665616430337940': 409044, // 4br-gameday-getawayev-chargerpet-friendly-10p
+  '674665706293298940': 401328, // 5br-fr-sorins-house-wpool-and-paddle-tennis
+  '674665597962817227': 398616, // 5br25b-home-5-min-from-nd-stadium
+  '674665688933074230': 478017, // audubon-woods-retreat-4br-3ba-near-notre-dame
+  '674665632905560220': 455751, // blue-gold-haven4b-3ba-house-1mi-to-nd-stadium
+  '674665691952973159': 419233, // charming-4-bedroom-retreat-near-notre-dame
+  '674665588420775455': 463377, // claddagh-clover-retreat-3b-2ba-home-1-mi-to-nd
+  '674665622067482596': 422053, // cozy-2br-home-near-nd-perfect-for-game-day-stays
+  '674665718460975105': 399031, // cozy-4br-3ba-home-12-mi-walk-to-nd
+  '674665553096346656': 395717, // cozy-bungalow-7-blocks-from-nd-campus
+  '674702440406188887': 398615, // cozy-freshly-updated-3br-home-5-min-from-nd
+  '674665658557924005': 395723, // cozy-home-w-sonos-9-min-walk-to-notre-dame
+  '674665694721213857': 470215, // emerald-clover3br-1bath-house-1-mile-from-nd
+  '674665732998432984': 449993, // end-zone-escape2br-house-1-mile-to-nd-stadium
+  '718457018012139773': 497186, // fighting-irish-retreat-3br4ba
+  '674665565503098050': 435867, // golden-dome-getawaytownhome-15-mi-to-nd
+  '707629284017047601': 494827, // golden-dome-retreat-5br-07-miles-to-notre-dame
+  '712424377232131197': 494827, // golden-dome-retreat-5br-near-notre-dame
+  '707629264014410117': 495438, // golden-dome-retreat-lower-level-near-notre-dame
+  '707629267436963832': 495439, // golden-dome-retreat-upper-level-near-notre-dame
+  '674665664476087061': 437378, // golden-shamrock3br-home-3min-to-nd
+  '674665613565628259': 462883, // huddle-hangout-3br-house-close-to-nd
+  '674665679210677359': 436636, // legends-landing-home-15mi-to-nd
+  '674665746562812290': 478285, // luxury-irish-quarter-retreat-walk-to-notre-dame
+  '674665571253488942': 467114, // minutes-from-notre-dame-4br-2ba-home-close-to-nd
+  '674665562516753557': 395719, // modern-cozy-home-4-min-drive-from-notre-dame
+  '674665577314258300': 450719, // nd-luxury-townhome-8-min-to-nd-stadium
+  '674665652765590091': 481002, // nd-retreat-at-the-pond-4-br-2-ba-close-to-nd
+  '674665628266659938': 480302, // nd-retreatluxury-3-b-35-ba-townhome-15mi-to-nd
+  '688555907289711162': 488323, // new-4-bed-2-and-a-half-bath-near-nd-campus
+  '674665594817089152': 485265, // new-build-near-notre-dame-5br-45ba
+  '674665714786764746': 395727, // on-campus-home-updated-steps-from-hesburgh-10
+  '674665647174582776': 395729, // perfect-nd-weekend-space-10-min-walk-to-campus
+  '674665619181801411': 395722, // perfect-notre-dame-weekend-home-08-miles-to-nd
+  '702548052505790215': 492190, // rockne-retreat
+  '674665670159369079': 449996, // rocknes-rallyupdated-3br-2ba-home-1-mi-to-nd
+  '674665655714185853': 422051, // shamrock-99-charming-family-home-15-mi-from-nd
+  '674665574445354333': 395703, // smart-home-1-mile-from-nd-eddy-st
+  '674665607752322826': 408493, // south-bend-serenity-3br-2-miles-from-nd
+  '674665729986922662': 419655, // spacious-4-bedroom-home-1-mi-to-nd-stadium
+  '674665556485344319': 419655, // spacious-nd-home-15-mi-to-nd-stadium
+  '674665582137707947': 481005, // steps-to-nd-stadium-luxury-6br5ba-sleeps-13
+  '674665624944771087': 395715, // stylish-3br-cozy-home-10min-drive-from-nd
+  '674665644267930055': 432460, // tdj-getaway4br-home-wgame-room
+  '674665724232337488': 466575, // the-darby-condocozy-1br-condo-1mi-to-nd-campus
+  '674665650160927269': 463623, // the-dome-home3br-house-1mi-to-nd
+  '674665661540074207': 458819, // the-domer-den-3br35ba-home-15mi-to-nd-campus
+  '674665559576546415': 483158, // the-experience-at-notre-dame
+  '674665676408882241': 466348, // the-irish-charm5br-2ba-home-1mi-to-nd-campus
+  '674665741395429694': 455752, // the-irish-grand4br-home-05-mi-to-nd-sleeps-20
+  '674665727193516150': 499033, // the-modern-irish-4b-35ba-1-mi-to-nd-stadium
+  '674665711771060134': 465739, // the-playbook-place2br-1ba-home-15mi-to-nd
+  '674665708939904893': 401328, // the-pool-house-at-fr-sorins-w-paddle-tennis
+  '674665697451705809': 471416, // the-ultimate-irish-getaway-15-miles-from-campus
+  '674665591444868683': 460167, // the-victory-lounge-3b-35ba-1-mi-to-nd
+  '674665636332306700': 405069, // victory-views-estate-luxury-guest-loft
+  '674665641424191854': 404236, // victory-views-estate-luxury-retreat-for-25-guests
+  '674665638882443555': 405068, // victory-views-main-house-luxury-home-for-20-ppl
 };
