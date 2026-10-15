@@ -359,8 +359,6 @@ export function renderHome(site, d) {
         (d.reviews.length ? '<div class="rgrid">' + d.reviews.map(reviewCard).join('') + '</div>' : '') +
         '<div class="center-btn"><a class="chip" href="/reviews">Show all ' + r.count.toLocaleString('en-US') + ' reviews</a></div></section>'
       : '') +
-    '<section class="band" style="--bg:url(/img/welcome.jpg)"><div class="band-in"><p class="sub">Irish Management</p><h2>Welcoming Guests to Notre Dame</h2>' +
-      '<div class="stats"><div><p>65+</p><p>Properties Managed</p></div><div><p>3 Cities</p><p>Across the Region</p></div><div><p>24/7</p><p>Guest Support</p></div></div></div></section>' +
     (d.away || []).map(({ dest, homes }) => {
       const h = homes[0];
       const img = h.photos && h.photos[0];
