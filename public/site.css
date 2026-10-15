@@ -446,3 +446,10 @@ dialog.filters-modal[open]{display:flex}
 .bd-cta p{margin-top:8px;max-width:560px}
 .bd-cta-btns{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .bd-cta .btn-dark{display:inline-flex;align-items:center;text-decoration:none}
+/* where you'll sleep */
+.sleep{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;width:100%}
+.sleep-card{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:12px;padding:20px;color:var(--ink)}
+.sleep-card svg{margin-bottom:6px}
+.sleep-card strong{font-weight:600;line-height:20px}
+.sleep-card span{font-size:14px;line-height:18px;color:var(--muted)}
+@media (max-width:520px){.sleep{grid-template-columns:1fr 1fr}}

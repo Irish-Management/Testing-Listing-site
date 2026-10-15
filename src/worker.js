@@ -162,6 +162,22 @@ const NOT_AMENITIES = new Set(['PropertyType', 'Accommodation', 'HouseRules', 'B
   'LocationTypeFeatures', 'ThemeFeatures', 'AttractionFeatures', 'LeisureFeatures', 'LocalFeatures',
   'ListingExpectationFeatures', 'ActivitiesFeatures', 'SportsFeatures']);
 
+// Bedrooms for "Where you'll sleep". OwnerRez's bedroom details read like
+// "2nd Floor Bunk Room \u2013 1 Bunk Bed, 1 Twin Bed"; fall back to the rooms list (bed count only).
+function sleepingRooms(l, details) {
+  const out = [];
+  for (const d of details) {
+    const i = d.lastIndexOf(' \u2013 ');
+    if (i < 0) continue; // the summary line, e.g. "6 Bedrooms, sleeps 12-14"
+    const name = d.slice(0, i).trim();
+    const beds = d.slice(i + 3).trim().toLowerCase();
+    if (name && beds) out.push({ name, beds });
+  }
+  if (out.length) return out;
+  return (l.rooms || []).filter((r) => r.type === 'bedroom' || r.type === 'studio')
+    .map((r) => ({ name: r.name || 'Bedroom', beds: r.total_beds ? r.total_beds + (r.total_beds === 1 ? ' bed' : ' beds') : '' }));
+}
+
 function shapeListing(l) {
   const d = l.descriptions || {};
   const cats = (l.amenity_categories || []).map((c) => ({
@@ -187,6 +203,7 @@ function shapeListing(l) {
     houseRules: byType('HouseRules').map((i) => i.name),
     expectations: byType('ListingExpectationFeatures').map((i) => i.name + (i.note ? ': ' + i.note : '')),
     beds: (l.rooms || []).reduce((s, r) => s + (r.total_beds || 0), 0),
+    sleep: sleepingRooms(l, byType('Bedrooms').map((i) => i.name)),
     reviewAverage: l.review_average || 0,
     reviewCount: l.review_count || 0,
     sleepsMax: l.sleeps_max || l.occupancy_max || 0,
@@ -208,7 +225,7 @@ async function fetchListing(env, id) {
 }
 
 function getListing(env, ctx, id) {
-  return cached(ctx, 'listing:v3:' + id, 1800, () => fetchListing(env, id));
+  return cached(ctx, 'listing:v5:' + id, 1800, () => fetchListing(env, id));
 }
 
 function firstName(r) {

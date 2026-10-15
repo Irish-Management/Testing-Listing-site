@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '21'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '22'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -96,6 +96,7 @@ export const ICON = {
   mail: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>', 16, 1.6),
   tag: svg('<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>', 18, 1.6),
   sliders: svg('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>', 18, 1.6),
+  bed: svg('<path d="M3 19V7"/><path d="M3 14h18v5"/><path d="M21 14v-2.5A2.5 2.5 0 0 0 18.5 9H11v5"/><circle cx="7" cy="11.5" r="1.8"/>', 30, 1.5),
   grid: svg('<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>', 16, 1.6),
 };
 
@@ -382,6 +383,13 @@ export function renderProperty(site, d) {
     ? '<section class="psec" id="about"><div class="desc clamp5" id="desc">' + paragraphs(desc) + '</div><button type="button" class="chip" id="desc-more">Read more</button></section>'
     : '';
 
+  const sleepRooms = l && l.sleep ? l.sleep : [];
+  const sleep = sleepRooms.length
+    ? '<section class="psec" id="sleep"><h2>Where you\u2019ll sleep</h2><div class="sleep">' +
+      sleepRooms.map((r) => '<div class="sleep-card">' + ICON.bed + '<strong>' + esc(r.name) + '</strong>' + (r.beds ? '<span>' + esc(r.beds) + '</span>' : '') + '</div>').join('') +
+      '</div></section>'
+    : '';
+
   let amenities = '';
   if (l && l.amenities.length) {
     const flat = [];
@@ -467,7 +475,7 @@ export function renderProperty(site, d) {
 
   const body = tabs +
     '<div class="wrap">' + gallery +
-      '<div class="playout"><div class="pmain">' + titleBlock + about + amenities + reviewsBlock + where + '</div>' + card + '</div>' +
+      '<div class="playout"><div class="pmain">' + titleBlock + about + sleep + amenities + reviewsBlock + where + '</div>' + card + '</div>' +
       promise + things +
     '</div>' + photosDialog +
     (site.inquiryWidget && p.key ? '<dialog class="modal" id="ask-modal" aria-label="Ask a question"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Have a question for us?</strong><span></span></div>' +
