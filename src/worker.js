@@ -140,7 +140,7 @@ async function fetchProperties(env) {
 }
 
 function getProperties(env, ctx) {
-  return cached(ctx, 'properties:v5', 900, () => fetchProperties(env));
+  return cached(ctx, 'properties:v6', 900, () => fetchProperties(env));
 }
 
 // OwnerRez amenity text contains HTML entities such as "&ndash;". Decode them to plain
