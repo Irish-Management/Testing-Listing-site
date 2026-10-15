@@ -498,7 +498,10 @@ export function renderHome(site, d) {
 
   const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: site.name, url: site.origin + '/' }];
   if (d.facts) schema.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: homeFaq(site, d.facts).map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
-  return layout(site, 'Notre Dame Vacation Rentals | Book Direct - ' + site.name, body, { canonical: '/', schema, bodyClass: 'home', image: '/img/hero.jpg', preloadImage: { href: '/img/hero-900.webp', srcset: '/img/hero-900.webp 900w, /img/hero-1400.webp 1400w, /img/hero.webp 1800w', sizes: '100vw' } });
+  // Rounded down to the nearest 10 ("80+") so the description stays true as homes come and go.
+  const many = d.total >= 20 ? Math.floor(d.total / 10) * 10 + '+ ' : '';
+  const description = 'Book ' + many + 'Notre Dame and South Bend vacation rentals direct with ' + site.name + '. Walk to campus, game day ready homes, and no third-party fees.';
+  return layout(site, site.name + ' | Notre Dame & South Bend Vacation Rentals', body, { canonical: '/', description, schema, bodyClass: 'home', image: '/img/hero.jpg', preloadImage: { href: '/img/hero-900.webp', srcset: '/img/hero-900.webp 900w, /img/hero-1400.webp 1400w, /img/hero.webp 1800w', sizes: '100vw' } });
 }
 
 export function renderSearch(site, d) {
