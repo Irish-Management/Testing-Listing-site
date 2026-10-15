@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '30'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '32'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -108,6 +108,14 @@ export const ICON = {
   starLine: svg('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>', 24, 1.6),
   headset: svg('<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="13" width="3.5" height="5.5" rx="1.5"/><rect x="17.5" y="13" width="3.5" height="5.5" rx="1.5"/><path d="M19 18.5c0 1.5-1.5 2.5-4 2.5h-1.5"/><path d="m10 12 1.5 1.5L14.5 10"/>', 24, 1.6),
   homeLg: svg('<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>', 24, 1.6),
+  key: svg('<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/>', 24, 1.6),
+  trash: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>', 24, 1.6),
+  wrench: svg('<path d="M14.5 6.5a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3l7.5-7.5a4 4 0 0 1-2-2z"/><path d="M14.5 6.5 17 4l3 3-2.5 2.5"/>', 24, 1.6),
+  shield: svg('<path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z"/><path d="m9 12 2 2 4-4"/>', 24, 1.6),
+  camera: svg('<path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/>', 24, 1.6),
+  brush: svg('<path d="M20 4 10 14"/><path d="M10 14c-3 0-5 2-5 4.5 0 .8-.6 1.5-2 1.5 1.5 1 3 1 4.5 1C10 21 12 18 10 14z"/><path d="m14 10 2 2"/>', 24, 1.6),
+  clipboard: svg('<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="m9 14 2 2 4-4"/>', 24, 1.6),
+  chart: svg('<path d="M4 20V4M4 20h16"/><path d="m7 15 4-4 3 3 5-6"/>', 24, 1.6),
   home: svg('<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>', 22, 1.6),
   note: svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9h8M8 13h5M14 20v-3a2 2 0 0 1 2-2h4"/>', 22, 1.6),
   badge: svg('<path d="M12 3l2.3 1.6 2.8-.2.9 2.7 2.3 1.6-.9 2.6.9 2.6-2.3 1.6-.9 2.7-2.8-.2L12 21l-2.3-1.6-2.8.2-.9-2.7-2.3-1.6.9-2.6-.9-2.6L6 6.5l.9-2.7 2.8.2z"/><path d="m9 12 2 2 4-4"/>', 22, 1.6),
@@ -243,7 +251,7 @@ function header(site, opts) {
       '<nav class="menu" aria-label="Main" hidden>' +
         '<a href="/">Home</a><a href="/s">All homes</a>' +
         '<span class="menu-label">Listings</span>' + COLLECTIONS.map((c) => '<a class="sub" href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a class="sub" href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a class="sub" href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') +
-        '<span class="menu-sep" aria-hidden="true"></span><a href="/reviews">Guest reviews</a>' +
+        '<span class="menu-sep" aria-hidden="true"></span><a href="/reviews">Guest reviews</a><a href="/management">Property management</a>' +
         (site.sms ? '<a href="sms:' + esc(site.sms) + '">Text us</a>' : '') +
         (site.email ? '<a href="mailto:' + esc(site.email) + '">Email us</a>' : '') +
       '</nav></div>' +
@@ -264,6 +272,7 @@ function footer(site) {
   return '<footer class="site-footer">' + contact +
     '<div class="fwrap fgrid"><div><img src="/img/logo.png" alt="' + esc(site.name) + '" width="32" height="32"></div>' +
       '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') + '</div>' +
+      '<div><h2>Owners</h2><a href="/management">Property management</a></div>' +
       (social ? '<div><h2>Social</h2>' + social + '</div>' : '') + '</div></div>' +
     '<div class="fbottom"><div class="fwrap"><span>&copy; ' + new Date().getUTCFullYear() + ' ' + esc(site.name) + '</span>' +
       '<nav aria-label="Legal"><a href="/terms">Terms of Service</a><span aria-hidden="true">&middot;</span><a href="/privacy-policy">Privacy Policy</a><span aria-hidden="true">&middot;</span><a href="/sitemap">Sitemap</a></nav></div></div>' +
@@ -729,8 +738,73 @@ export function renderReviews(site, d) {
   return layout(site, 'Guest reviews | ' + site.name, body, { canonical: '/reviews', description: 'Read reviews from guests who stayed in Irish Management vacation rentals near Notre Dame.' });
 }
 
+// ---------- Property management (owners) ----------
+
+// Where every owner button points until the owner pages move onto this site.
+const OWNER_URL = 'https://irishmgmt.com';
+
+const OWNER_VALUES = [
+  ['users', 'Unmatched Guest Experience', 'We deliver exceptional service to guests, ensuring a memorable stay and encouraging repeat bookings.'],
+  ['homeLg', 'Comprehensive Property Care', 'Our dedicated in-house teams manage housekeeping, maintenance, and property management to ensure your home remains pristine both inside and out.'],
+  ['chart', 'Revenue Optimization', 'Experienced professionals and sophisticated strategies drive a tailored revenue management approach that maximizes your income throughout the year.'],
+];
+
+const OWNER_SERVICES = [
+  ['key', 'Hands-Off Management', 'We manage every aspect of your rental property, freeing you from day-to-day responsibilities.'],
+  ['trash', 'Weekly Trash Service', 'We take out the trash each week so it is removed according to city and HOA rules.'],
+  ['headset', '24/7 Support', 'Our team is available around the clock to help guests, ensuring their satisfaction and your peace of mind.'],
+  ['wrench', 'Standard Home Maintenance', 'We handle furnace filters, water softener tablets, smoke alarm batteries, and more.'],
+  ['shield', 'Insurance Coverage', 'Market-leading insurance that covers your property and its contents, as well as your guests.'],
+  ['camera', 'Security Monitoring', 'We monitor your security system and cameras for suspicious activity and respond when needed.'],
+  ['brush', 'Design Services', 'Partner with award-winning designers to enhance your home’s appeal and income potential.'],
+  ['clipboard', 'Product Check and Restock', 'We do an extensive inventory check and restock after every guest checks out.'],
+];
+
+const OWNER_REVIEWS = [
+  ['Bob M.', 'South Bend', 'Irish Management has been an amazing partner for my property in South Bend. Incredibly responsive, proactive and detailed in managing everything from day-to-day maintenance to renter arrivals to subcontractor work. Highly recommend!'],
+  ['Sally D.', 'South Bend', 'Very easy to work with and pay great attention to detail. Prompt with communication. Overall we’ve had a fantastic experience working with Irish Management. Highly recommended!'],
+  ['Donnie P.', 'Niles', 'The team at Irish Management have been great at managing our property. They’re very detail oriented and always think through things from the customers’ perspective. Would highly recommend them.'],
+  ['Michael M.', 'South Bend', 'Irish Management has been fantastic to work with for my property in South Bend! They are thorough and think of everything. Everyone I have dealt with is easy and delightful to work with! The team is very responsive to my needs and the needs of the renters. They make sure the house is always looking great. I would highly recommend them!'],
+];
+
+export function renderManagement(site, d) {
+  const r = d.rating || {};
+  const go = (label, cls) => '<a class="' + cls + '" href="' + OWNER_URL + '" target="_blank" rel="noopener">' + label + '</a>';
+  const stats = [
+    r.count ? [r.average.toFixed(2), 'Average guest rating'] : null,
+    r.count ? [r.count.toLocaleString('en-US') + '+', 'Guest reviews'] : null,
+    ['3,000+', 'Stays completed'],
+    ['24/7', 'Local support'],
+  ].filter(Boolean);
+  const body =
+    '<section class="band mg-hero" style="--bg:url(/img/mgmt-hero.jpg)"><div class="band-in">' +
+      '<p class="sub">Irish Management Vacation Rental Management</p><h1>Find Your Property’s True Income Potential</h1>' +
+      '<p class="mg-lead">Full-service short-term rental management from the South Bend team behind Notre Dame’s most sought-after homes.</p>' +
+      go('Take the First Step', 'btn-gold mg-btn') + '</div></section>' +
+    '<section class="direct wrap"><h2>Why owners choose Irish Management</h2><div class="direct-grid">' +
+      OWNER_VALUES.map(([i, t, x]) => '<div><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + x + '</p></div>').join('') + '</div></section>' +
+    '<section class="wrap mg-services"><h2>Everything your rental needs, handled</h2><div class="mg-grid">' +
+      OWNER_SERVICES.map(([i, t, x]) => '<div class="mg-card"><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + x + '</p></div>').join('') + '</div></section>' +
+    '<section class="mg-stats"><div class="wrap"><p class="sub">Team of Superhosts</p><div class="mg-stat-grid">' +
+      stats.map(([n, l]) => '<div><strong>' + n + '</strong><span>' + l + '</span></div>').join('') + '</div></div></section>' +
+    '<section class="wrap away mg-nd"><div class="away-card"><img src="/img/mgmt-home.jpg" alt="A large home managed by Irish Management" loading="lazy">' +
+      '<div><p class="sub">South Bend and Notre Dame</p><h2>Trusted Notre Dame Airbnb Management Company</h2>' +
+      '<p class="muted">Experience the highest standard in property care and guest services with Irish Management, the trusted and vetted rental management company in the Notre Dame area. We blend traditional hospitality with exceptional style and design, creating a standout collection of sought-after vacation homes.</p>' +
+      '<p class="muted mg-channels">We list your home on Airbnb, Vrbo, Booking.com, and Expedia, plus our own direct booking site.</p>' +
+      go('Speak With Our Team', 'btn-dark big mg-inline') + '</div></div></section>' +
+    '<section class="guests wrap"><p class="sub">From Our Owners</p><h2>Here’s What Our Clients Think</h2><div class="rgrid">' +
+      OWNER_REVIEWS.map(([n, where, t]) => '<article class="rcard"><p class="rquote">“' + esc(t) + '”</p><div class="rmeta">' + stars(5) + '<h3>' + esc(n) + '</h3><p>Owner, ' + esc(where) + '</p></div></article>').join('') +
+    '</div></section>' +
+    '<section class="wrap mg-cta"><h2>Interested in listing with us?</h2><p class="muted">Tell us about your property and someone on our team will follow up to learn more about how we can help. We look forward to talking with you!</p>' +
+      go('Get Started', 'btn-dark big mg-inline') + '</section>';
+  return layout(site, 'Vacation Rental Management in South Bend | ' + site.name, body, {
+    canonical: '/management', image: '/img/mgmt-hero.jpg',
+    description: 'Full-service Airbnb and vacation rental management near Notre Dame and South Bend. Housekeeping, maintenance, 24/7 guest support, and revenue management from Irish Management.',
+  });
+}
+
 export function renderSitemap(site, d) {
-  const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li>' + COLLECTIONS.map((c) => '<li><a href="/listings/' + c.slug + '">' + esc(c.name) + '</a></li>').join('') + '<li><a href="/listings/big-dates">Big Weekends</a></li><li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
+  const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li>' + COLLECTIONS.map((c) => '<li><a href="/listings/' + c.slug + '">' + esc(c.name) + '</a></li>').join('') + '<li><a href="/listings/big-dates">Big Weekends</a></li><li><a href="/management">Property management</a></li><li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
     '<h2>Homes</h2><ul>' + d.props.map((p) => '<li><a href="' + esc(propHref(p)) + '">' + esc(p.title) + '</a></li>').join('') + '</ul></section>';
   return layout(site, 'Sitemap | ' + site.name, body, { canonical: '/sitemap' });
 }

@@ -4,7 +4,7 @@
 
 import {
   renderHome, renderSearch, renderProperty, renderThanks, renderNotFound, renderError,
-  renderReviews, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS, DESTINATIONS, homePath,
+  renderReviews, renderManagement, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS, DESTINATIONS, homePath,
 } from './pages.js';
 import { EVENTS, EVENT_GROUPS } from './events.js';
 
@@ -663,7 +663,7 @@ function robotsTxt(s) {
 }
 
 function sitemapXml(s, props) {
-  const paths = ['/', '/s', '/listings/big-dates', '/reviews', '/terms', '/privacy-policy']
+  const paths = ['/', '/s', '/listings/big-dates', '/reviews', '/management', '/terms', '/privacy-policy']
     .concat(COLLECTIONS.map((c) => '/listings/' + c.slug))
     .concat(DESTINATIONS.filter((d) => props.some((p) => p.state === d.state)).map((d) => '/listings/' + d.slug))
     .concat(props.map(homePath));
@@ -788,6 +788,10 @@ async function route(request, env, ctx) {
     return html(renderSearch(s, { props: homes, q, notice }));
   }
 
+  if (path === '/management' && request.method === 'GET') {
+    const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
+    return html(renderManagement(s, { rating: siteRating(props, snap) }));
+  }
   if (path === '/reviews' && request.method === 'GET') {
     const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
     const names = Object.fromEntries(props.map((p) => [p.id, p.title]));
