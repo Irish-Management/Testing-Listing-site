@@ -84,9 +84,12 @@ function stateAbbr(s) {
 }
 
 function publicProperty(p) {
-  // Only fields safe to show the public. Never pass owner, key, or street address.
+  // Only fields safe to show the public. Never pass owner details or street address.
   return {
     id: p.id,
+    // The property key is OwnerRez's public widget identifier (it appears in every widget
+    // embed code). The inquiry widget needs it, without dashes, to file the inquiry under this home.
+    key: String(p.key || '').replace(/-/g, ''),
     title: p.external_name || p.name,
     bedrooms: p.bedrooms || 0,
     bathrooms: p.bathrooms || 0,
@@ -131,7 +134,7 @@ async function fetchProperties(env) {
 }
 
 function getProperties(env, ctx) {
-  return cached(ctx, 'properties:v2', 900, () => fetchProperties(env));
+  return cached(ctx, 'properties:v3', 900, () => fetchProperties(env));
 }
 
 // OwnerRez amenity text contains HTML entities such as "&ndash;". Decode them to plain
@@ -479,6 +482,7 @@ function site(env, url) {
     facebook: env.FACEBOOK_URL || '',
     origin: (env.SITE_URL || url.origin).replace(/\/$/, ''),
     leadDays: leadDays(env),
+    inquiryWidget: (env.INQUIRY_WIDGET_ID || '').trim(),
   };
 }
 

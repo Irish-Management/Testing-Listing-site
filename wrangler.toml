@@ -27,6 +27,9 @@ INSTAGRAM_URL = "https://www.instagram.com/irishmgmt"
 FACEBOOK_URL = "https://www.facebook.com/irishmgmt"
 # Earliest check-in, in days from today. OwnerRez rejects stays that start sooner.
 MIN_LEAD_DAYS = "3"
+# OwnerRez Booking/Inquiry widget (Inquiry Only mode) behind the "Have a question for us?"
+# button. One widget serves every home; the page passes each home's property key.
+INQUIRY_WIDGET_ID = "ea48066e233740ce80c27dccc478dfc3"
 # Properties whose name contains any of these (comma separated) are hidden from the site.
 EXCLUDE_NAME_CONTAINS = "Home Watch"
 # Optional: only show properties with this OwnerRez tag, for example "Direct Booking".

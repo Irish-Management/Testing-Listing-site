@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '9'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '10'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -383,6 +383,7 @@ export function renderProperty(site, d) {
       '<div id="b-body" aria-live="polite"></div>' +
       '<button type="button" class="btn-gold" id="reserve" hidden>Reserve</button>' +
       '<button type="button" class="btn-soft" id="b-action">Check availability</button>' +
+      (site.inquiryWidget && p.key ? '<button type="button" class="btn-outline" id="ask">Have a question for us?</button>' : '') +
       '<form class="guest-form" id="guest-form" novalidate hidden>' +
         '<p class="pop-title">Who’s booking?</p>' +
         '<div class="two"><label>First name<input name="first_name" autocomplete="given-name" required></label><label>Last name<input name="last_name" autocomplete="family-name" required></label></div>' +
@@ -409,6 +410,9 @@ export function renderProperty(site, d) {
       '<div class="playout"><div class="pmain">' + titleBlock + about + amenities + reviewsBlock + where + '</div>' + card + '</div>' +
       promise + things +
     '</div>' + photosDialog +
+    (site.inquiryWidget && p.key ? '<dialog class="modal" id="ask-modal" aria-label="Ask a question"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Have a question for us?</strong><span></span></div>' +
+      '<div class="modal-body"><p class="muted">Ask us anything about ' + esc(p.title) + '. Our South Bend team will get back to you.</p>' +
+      '<div class="ownerrez-widget ask-widget" data-propertyId="' + esc(p.key) + '" data-widget-type="Inquiry" data-widgetId="' + esc(site.inquiryWidget) + '"></div></div></dialog>' : '') +
     '<script type="application/json" id="boot">' + json(boot) + '</script>';
 
   return layout(site, p.title + ' | ' + site.name, body, {

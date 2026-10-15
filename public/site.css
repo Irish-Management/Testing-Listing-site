@@ -351,3 +351,8 @@ dialog.photos-modal{width:min(1000px,100vw);max-height:100vh;height:100vh;border
 .legal ul{padding-left:22px;margin:12px 0}
 .legal li{margin:6px 0}
 .sep{margin:0 6px}
+.btn-outline{height:48px;width:100%;border-radius:999px;border:1px solid var(--ink);background:#fff;color:var(--ink);font-size:16px;font-weight:600;cursor:pointer;margin-top:8px}
+.btn-outline:hover{background:var(--light)}
+#ask-modal{width:min(620px,calc(100vw - 32px))}
+.ask-widget{min-height:560px}
+.ask-widget iframe{width:100%;border:0}

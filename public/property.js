@@ -304,6 +304,20 @@
       });
   });
 
+  // ---- questions: OwnerRez inquiry widget, loaded the first time it is opened ----
+  var ask = $('#ask'), askModal = $('#ask-modal');
+  if (ask && askModal) {
+    ask.addEventListener('click', function () {
+      askModal.showModal();
+      if (window.OwnerRez && window.OwnerRez.loadWidgets) { window.OwnerRez.loadWidgets('ownerrez-widget'); return; }
+      if (document.getElementById('or-widget-js')) return;
+      var s = document.createElement('script');
+      s.id = 'or-widget-js';
+      s.src = 'https://app.ownerrez.com/widget.js';
+      document.body.appendChild(s);
+    });
+  }
+
   // ---- load availability ----
   paintFields();
   if (state.arrival && state.departure) refresh(); else chooseMode();
