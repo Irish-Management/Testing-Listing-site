@@ -20,7 +20,7 @@ SITE_NAME = "Irish Management"
 OWNERREZ_EMAIL = ""
 # Full public address of the site, used for the after-booking redirect. Leave blank to use
 # whatever address the site is served from. Example: https://stay.irishmgmt.com
-SITE_URL = ""
+SITE_URL = "https://stayirish.com"
 CONTACT_PHONE = "+1 (574) 367-2727"
 CONTACT_EMAIL = "guests@irishmgmt.com"
 INSTAGRAM_URL = "https://www.instagram.com/irishmgmt"
