@@ -1,4 +1,7 @@
-// HTML templates for the direct booking site.
+// HTML templates for the direct booking site. Styles live in public/site.css and
+// browser scripts in public/*.js; both are served as static assets by the Worker.
+
+const V = '9'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -10,10 +13,8 @@ function slug(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
 }
 
-function fmtDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso + 'T00:00:00Z');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+function shortDate(iso) {
+  return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 function fmtTime(hhmm) {
@@ -24,651 +25,472 @@ function fmtTime(hhmm) {
   return h12 + ':' + String(m || 0).padStart(2, '0') + ' ' + ap;
 }
 
+function money(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+function plural(n, word, many) { return n + ' ' + (n === 1 ? word : (many || word + 's')); }
+function json(o) { return JSON.stringify(o).replace(/</g, '\\u003c'); }
+
 function paragraphs(text) {
-  return String(text || '').split(/\n{2,}|\r\n\r\n/).map((p) => p.trim()).filter(Boolean)
-    .map((p) => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+  return String(text || '').split(/\r?\n\s*\r?\n/).map((p) => p.trim()).filter(Boolean)
+    .map((p) => '<p>' + esc(p).replace(/\r?\n/g, '<br>') + '</p>').join('');
 }
 
-const ICON = {
-  search: '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
-  pin: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
-  wallet: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><circle cx="17" cy="14" r="1.5"/></svg>',
-  lock: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>',
-  chat: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
-  bed: '<svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18V8"/><path d="M3 14h18v4"/><path d="M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="1.6"/></svg>',
-  check: '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4.5 4.5L19 7"/></svg>',
-  grid: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
-  left: '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
-  right: '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+// ---------- Icons ----------
+
+const svg = (d, size = 20, sw = 1.6) => '<svg aria-hidden="true" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + sw + '" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+
+export const ICON = {
+  search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>', 18, 1.8),
+  menu: svg('<path d="M4 7h16M4 12h16M4 17h16"/>', 18, 1.8),
+  close: svg('<path d="M6 6l12 12M18 6 6 18"/>', 18, 1.8),
+  left: svg('<path d="m15 18-6-6 6-6"/>', 18, 1.8),
+  right: svg('<path d="m9 18 6-6-6-6"/>', 18, 1.8),
+  down: svg('<path d="m6 9 6 6 6-6"/>', 18, 1.6),
+  share: svg('<path d="M12 3v12"/><path d="m8 7 4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>', 18, 1.6),
+  star: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>',
+  dollar: svg('<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.2 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.5 0-2.6-.6-3-1.6M12 6.5v11"/>', 24, 1.6),
+  phone: svg('<path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>', 24, 1.6),
+  users: svg('<circle cx="9" cy="8" r="3.2"/><circle cx="16.5" cy="8" r="3.2"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5H3z"/><path d="M15 14.2c.5-.1 1-.2 1.5-.2 3.3 0 5.5 2 5.5 5h-5"/>', 24, 1.6),
+  home: svg('<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>', 22, 1.6),
+  note: svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9h8M8 13h5M14 20v-3a2 2 0 0 1 2-2h4"/>', 22, 1.6),
+  badge: svg('<path d="M12 3l2.3 1.6 2.8-.2.9 2.7 2.3 1.6-.9 2.6.9 2.6-2.3 1.6-.9 2.7-2.8-.2L12 21l-2.3-1.6-2.8.2-.9-2.7-2.3-1.6.9-2.6-.9-2.6L6 6.5l.9-2.7 2.8.2z"/><path d="m9 12 2 2 4-4"/>', 22, 1.6),
+  phoneSm: svg('<path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>', 16, 1.6),
+  mail: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>', 16, 1.6),
+  tag: svg('<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>', 18, 1.6),
+  sliders: svg('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>', 18, 1.6),
+  grid: svg('<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>', 16, 1.6),
 };
 
-const CSS = String.raw`
-:root{--navy:#0E2240;--navy-2:#1E3458;--gold:#A8842E;--gold-text:#7A5F1F;--gold-wash:#F6F0E1;--ink:#1B2433;--ink-2:#3D4757;--muted:#4A5568;--line:#E3E6EC;--line-2:#B9C1CE;--tint:#F4F6F9;--photo:#E8EBF1;
---display:'Archivo','Helvetica Neue',Helvetica,sans-serif;--body:'Public Sans','Helvetica Neue',Helvetica,sans-serif}
-*{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;font-family:var(--body);color:var(--ink);background:#fff;line-height:1.5}
-a{color:var(--navy)}a:hover{color:var(--gold-text)}
-img{max-width:100%;display:block}
-:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-.wrap{max-width:1280px;margin:0 auto;padding:0 32px}
-@media (max-width:640px){.wrap{padding:0 18px}}
-h1,h2,h3{font-family:var(--display);color:var(--navy);letter-spacing:-.015em;margin:0}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 24px;border-radius:999px;border:0;background:var(--navy);color:#fff;font:inherit;font-weight:600;text-decoration:none;cursor:pointer}
-.btn:hover{color:#fff;background:#18325a}
-.btn[disabled]{opacity:.45;cursor:not-allowed}
-.btn-outline{background:#fff;color:var(--navy);border:1.5px solid var(--navy)}
-.btn-outline:hover{background:var(--tint);color:var(--navy)}
-.btn-block{width:100%;border-radius:12px;min-height:54px;font-size:17px;font-weight:700}
-.linkbtn{background:none;border:0;padding:0;min-height:44px;font:inherit;font-weight:600;color:var(--navy);text-decoration:underline;cursor:pointer}
+const AMENITY_ICONS = [
+  [/wifi|internet/i, '<path d="M2 9a15 15 0 0 1 20 0"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r=".8"/>'],
+  [/parking|garage|driveway/i, '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M10 17V7h3a3 3 0 0 1 0 6h-3"/>'],
+  [/tv|television/i, '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/>'],
+  [/fridge|refrigerator|freezer/i, '<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M6 10h12M9 6v2M9 13v3"/>'],
+  [/kitchen|stove|oven|cook|microwave|toaster|pots/i, '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16"/><circle cx="8" cy="6.5" r=".6"/><circle cx="12" cy="6.5" r=".6"/><rect x="7" y="12" width="10" height="5" rx="1"/>'],
+  [/dish|utensil|wine|glass/i, '<path d="M7 3v8a2 2 0 0 0 4 0V3M9 3v18M17 3c-1.5 0-3 2-3 6s1.5 5 3 5v7"/>'],
+  [/coffee|kettle/i, '<path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M11 3v3"/>'],
+  [/dining|table/i, '<path d="M3 7h18M5 7v13M19 7v13M3 4h18"/>'],
+  [/washer|laundry|dryer/i, '<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M8 6h2"/>'],
+  [/air condition|a\/c|\bac\b|fan/i, '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/>'],
+  [/heat|fireplace|fire pit/i, '<path d="M12 21c-4 0-6-2.7-6-6 0-4 4-6 4-11 2 2 3.5 3.5 4 6 1-1 1.5-2 1.5-3 2 2 2.5 4.5 2.5 8 0 3.3-2 6-6 6z"/>'],
+  [/linen|towel|bath|shower|hair|shampoo|soap/i, '<path d="M8 4h8l1 4-2 1v11H9V9L7 8z"/>'],
+  [/patio|deck|porch|balcony|outdoor/i, '<path d="M3 20h18M5 20v-7h14v7M4 13l8-6 8 6"/>'],
+  [/garden|yard|backyard|lawn|grill|bbq/i, '<path d="M12 21v-8"/><path d="M12 13c-4 0-6-3-6-7 4 0 6 3 6 7z"/><path d="M12 11c0-4 2-6 6-6 0 4-2 6-6 6z"/>'],
+  [/pool|hot tub|spa/i, '<path d="M3 17c2 0 2-1.5 4.5-1.5S9.5 17 12 17s2.5-1.5 4.5-1.5S19 17 21 17M3 21c2 0 2-1.5 4.5-1.5S9.5 21 12 21s2.5-1.5 4.5-1.5S19 21 21 21M8 14V5a2 2 0 0 1 4 0M16 14V5a2 2 0 0 0-4 0"/>'],
+  [/crib|pack n play|high chair|child|baby/i, '<rect x="4" y="8" width="16" height="10" rx="1"/><path d="M8 8v10M12 8v10M16 8v10M4 21v-3M20 21v-3"/>'],
+  [/desk|workspace|laptop/i, '<rect x="4" y="5" width="16" height="10" rx="1.5"/><path d="M2 19h20"/>'],
+  [/game|board|ping|pool table|foosball/i, '<rect x="3" y="7" width="18" height="11" rx="4"/><path d="M8 11v3M6.5 12.5h3"/><circle cx="16" cy="11.5" r=".8"/><circle cx="17.5" cy="13.5" r=".8"/>'],
+  [/smoke|carbon|extinguisher|first aid|safety/i, '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/>'],
+  [/ev charg/i, '<path d="M13 3 6 13h5l-1 8 7-10h-5z"/>'],
+  [/pet/i, '<circle cx="6" cy="10" r="1.8"/><circle cx="10" cy="6" r="1.8"/><circle cx="14" cy="6" r="1.8"/><circle cx="18" cy="10" r="1.8"/><path d="M12 12c-3 0-5 3.5-5 6 0 1.5 1.5 2 3 1.5 1.2-.4 2.8-.4 4 0 1.5.5 3 0 3-1.5 0-2.5-2-6-5-6z"/>'],
+];
 
-/* header */
-.site-header{border-bottom:1px solid var(--line);background:#fff}
-.site-header .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;padding-top:14px;padding-bottom:14px}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--navy)}
-.brand-mark{width:38px;height:38px;border-radius:8px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:15px}
-.brand-name{font-family:var(--display);font-weight:700;font-size:20px}
-.nav{display:flex;flex-wrap:wrap;gap:8px 26px;font-weight:500;font-size:15px}
-.nav a{text-decoration:none}
+function amenityIcon(name) {
+  for (const [re, d] of AMENITY_ICONS) if (re.test(name)) return svg(d, 22, 1.5);
+  return svg('<path d="m5 12 4.5 4.5L19 7"/>', 22, 1.5);
+}
 
-/* hero */
-.hero{background:var(--navy);color:#fff}
-.hero .wrap{padding-top:64px;padding-bottom:72px;display:flex;flex-wrap:wrap;gap:48px;align-items:center}
-.hero-copy{flex:1 1 520px;min-width:0;display:flex;flex-direction:column;gap:18px}
-.hero h1{color:#fff;font-weight:800;font-size:clamp(38px,5vw,62px);line-height:1.03}
-.hero p{margin:0;font-size:18px;color:#D3DAE6;max-width:520px}
-.hero-photo{flex:1 1 400px;min-width:0;height:440px;border-radius:20px;overflow:hidden;background:var(--navy-2)}
-.hero-photo img{width:100%;height:100%;object-fit:cover}
-@media (max-width:640px){.hero-photo{height:260px}}
-.search{margin-top:10px;background:#fff;border-radius:16px;padding:8px;display:flex;flex-wrap:wrap;gap:4px;color:var(--ink)}
-.search label{flex:1 1 140px;display:flex;flex-direction:column;gap:2px;padding:8px 14px;border-radius:10px}
-.search label+label{border-left:1px solid var(--line)}
-@media (max-width:640px){.search label+label{border-left:0;border-top:1px solid var(--line)}}
-.search span{font-size:13px;font-weight:600;color:var(--muted)}
-.search input{border:0;font:inherit;font-size:16px;padding:2px 0;color:var(--ink);background:transparent;min-height:28px}
-.search button{flex:0 0 auto;min-height:56px;padding:0 26px;border-radius:12px;border:0;background:var(--gold);color:var(--navy);font:inherit;font-weight:700;font-size:16px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-@media (max-width:640px){.search button{flex:1 1 100%;justify-content:center}}
+function stars(n, size) {
+  const s = ICON.star.replace(/width="14" height="14"/, 'width="' + (size || 14) + '" height="' + (size || 14) + '"');
+  return '<span class="stars" aria-label="' + esc(n) + ' out of 5 stars">' + s.repeat(Math.max(0, Math.min(5, Math.round(n)))) + '</span>';
+}
 
-/* listings */
-.section{padding:72px 0 32px}
-.section-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:28px}
-.section-head h2{font-size:34px}
-.section-head p{margin:6px 0 0;color:var(--muted)}
-.notice{margin:0 0 24px;padding:14px 18px;border-radius:12px;background:var(--gold-wash);color:var(--ink-2)}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:32px 24px}
-.card{display:flex;flex-direction:column;gap:12px;text-decoration:none;color:var(--ink)}
-.card-photo{aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:var(--photo)}
-.card-photo img{width:100%;height:100%;object-fit:cover;transition:transform .3s ease}
-.card:hover .card-photo img{transform:scale(1.03)}
-@media (prefers-reduced-motion:reduce){.card-photo img{transition:none}.card:hover .card-photo img{transform:none}}
-.card-title{font-weight:600;font-size:16px;line-height:1.35}
-.card-meta{font-size:14px;color:var(--muted)}
-.card-cta{font-size:14px;font-weight:600;color:var(--gold-text)}
-.empty{padding:40px;border-radius:16px;background:var(--tint);text-align:center}
+// ---------- Layout ----------
 
-/* value strip and bands */
-.values{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;padding:48px 0}
-.value{padding:26px;border-radius:16px;background:var(--tint);display:flex;flex-direction:column;gap:10px;color:var(--navy)}
-.value h3{font-size:20px}
-.value p{margin:0;color:var(--ink-2)}
-.band{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:24px;padding:44px;border-radius:20px;background:var(--gold-wash);margin-bottom:64px}
-.band h2{font-size:32px;font-weight:800}
-.band p{margin:8px 0 0;color:var(--ink-2);max-width:560px;font-size:17px}
-
-/* footer */
-.site-footer{background:var(--navy);color:#D3DAE6}
-.site-footer .wrap{display:flex;flex-wrap:wrap;gap:16px 40px;justify-content:space-between;padding-top:40px;padding-bottom:40px;font-size:15px}
-.site-footer a{color:#D3DAE6}
-.site-footer strong{font-family:var(--display);color:#fff;font-size:20px}
-
-/* property */
-.prop-top{padding-top:28px;display:flex;flex-direction:column;gap:10px}
-.crumbs{font-size:14px;color:var(--muted)}
-.crumbs a{color:var(--muted)}
-.prop-top h1{font-weight:800;font-size:clamp(28px,3.4vw,40px);line-height:1.1}
-.prop-sub{color:var(--ink-2);font-size:16px}
-.gallery{position:relative;display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:230px 230px;gap:8px;margin-top:24px;border-radius:18px;overflow:hidden}
-.gallery .ph{background:var(--photo);overflow:hidden}
-.gallery .ph img{width:100%;height:100%;object-fit:cover}
-.gallery .ph:first-child{grid-row:span 2}
-.gallery-btn{position:absolute;right:16px;bottom:16px;background:#fff;color:var(--navy);border:1px solid var(--navy);border-radius:10px;min-height:44px;padding:0 16px;font:inherit;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-@media (max-width:800px){.gallery{grid-template-columns:1fr 1fr;grid-template-rows:260px 140px}.gallery .ph:first-child{grid-column:span 2;grid-row:auto}.gallery .ph:nth-child(n+4){display:none}}
-.layout{display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start;padding:32px 0 80px}
-.main{flex:999 1 560px;min-width:0}
-.aside{flex:1 1 360px;min-width:0;position:sticky;top:24px;display:flex;flex-direction:column;gap:14px}
-@media (max-width:960px){.aside{position:static}}
-.block{padding:28px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:16px}
-.block:last-child{border-bottom:0}
-.block h2{font-size:22px}
-.block p{margin:0;font-size:16px;line-height:1.65;color:var(--ink-2)}
-.desc{display:flex;flex-direction:column;gap:12px}
-.desc.clamp{max-height:9.5em;overflow:hidden;position:relative}
-.desc.clamp::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3em;background:linear-gradient(rgba(255,255,255,0),#fff)}
-.host{display:flex;align-items:center;justify-content:space-between;gap:16px}
-.host .brand-mark{width:56px;height:56px;border-radius:999px;flex:0 0 auto}
-.highlight{display:flex;gap:16px;align-items:flex-start;color:var(--navy)}
-.highlight div{display:flex;flex-direction:column;color:var(--ink)}
-.highlight span{font-size:15px;color:var(--muted)}
-.rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
-.room{border:1px solid #DDE1E8;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px;color:var(--navy)}
-.room strong{color:var(--ink)}
-.room span{font-size:14px;color:var(--muted)}
-.amenities{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px 24px;margin:0;padding:0;list-style:none}
-.amenities li{display:flex;align-items:center;gap:12px;color:var(--ink)}
-.amenities svg{color:var(--gold);flex:0 0 auto}
-details.more summary{cursor:pointer;font-weight:600;min-height:44px;display:inline-flex;align-items:center;color:var(--navy)}
-details.more h3{font-size:16px;margin:16px 0 8px}
-.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px}
-.rules div{display:flex;flex-direction:column;gap:6px;color:var(--ink-2);font-size:15px}
-.rules strong{color:var(--ink)}
-.map{height:320px;border-radius:16px;overflow:hidden;background:var(--photo);border:0;width:100%}
-
-/* calendar */
-.cal-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.cal-nav{display:flex;gap:8px}
-.cal-nav button{width:44px;height:44px;border-radius:999px;border:1px solid var(--line-2);background:#fff;color:var(--navy);cursor:pointer;display:flex;align-items:center;justify-content:center}
-.cal-nav button[disabled]{opacity:.35;cursor:not-allowed}
-.months{display:flex;flex-wrap:wrap;gap:36px}
-.month{flex:1 1 280px}
-.month-name{text-align:center;font-weight:700;margin-bottom:10px}
-.dow,.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
-.dow span{text-align:center;font-size:12px;font-weight:600;color:var(--muted);padding-bottom:6px}
-.day{height:44px;border:0;background:transparent;font:inherit;font-size:14px;color:var(--ink);border-radius:999px;cursor:pointer}
-.day:hover:not([disabled]){outline:1.5px solid var(--navy)}
-.day[disabled]{color:#8A93A3;text-decoration:line-through;cursor:default}
-.day.blank{visibility:hidden}
-.day.in{background:var(--photo);border-radius:0;color:var(--navy);font-weight:600}
-.day.edge{background:var(--navy);color:#fff;font-weight:700;text-decoration:none}
-.cal-note{font-size:14px;color:var(--muted);min-height:21px}
-
-/* booking card */
-.book{border:1px solid #DDE1E8;border-radius:18px;padding:24px;background:#fff;box-shadow:0 10px 30px rgba(14,34,64,.10);display:flex;flex-direction:column;gap:16px}
-.price{display:flex;align-items:baseline;gap:6px}
-.price strong{font-family:var(--display);font-weight:800;font-size:26px;color:var(--navy)}
-.price span{color:var(--muted)}
-.fields{border:1px solid var(--line-2);border-radius:12px;overflow:hidden}
-.fields .two{display:grid;grid-template-columns:1fr 1fr}
-.datebtn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 14px;background:#fff;border:0;font:inherit;text-align:left;cursor:pointer;min-height:58px}
-.datebtn+.datebtn{border-left:1px solid var(--line-2)}
-.flabel{font-size:12px;font-weight:700;color:var(--ink)}
-.fval{font-size:15px;color:var(--ink-2)}
-.guests{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 8px 8px 14px;border-top:1px solid var(--line-2)}
-.stepper{display:flex;gap:6px}
-.stepper button{width:44px;height:44px;border-radius:999px;border:1px solid var(--line-2);background:#fff;color:var(--navy);font-size:20px;cursor:pointer}
-.stepper button[disabled]{opacity:.35;cursor:not-allowed}
-.lines{display:flex;flex-direction:column;gap:10px;font-size:15px}
-.line{display:flex;justify-content:space-between;gap:12px}
-.total{display:flex;justify-content:space-between;gap:12px;padding-top:14px;border-top:1px solid var(--line);font-weight:700;font-size:17px}
-.small{font-size:13px;color:var(--muted);text-align:center;margin:0}
-.err{color:#9B1C1C;font-size:14px;margin:0}
-.guest-form{display:none;flex-direction:column;gap:12px}
-.guest-form.open{display:flex}
-.guest-form label{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
-.guest-form input{min-height:46px;border:1px solid var(--line-2);border-radius:10px;padding:0 12px;font:inherit;font-weight:400}
-.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-.direct{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;background:var(--gold-wash);font-size:14px;color:var(--ink-2)}
-.direct svg{color:var(--gold-text);flex:0 0 auto}
-
-/* photo dialog */
-dialog.photos{width:min(1100px,96vw);max-height:92vh;border:0;border-radius:16px;padding:0}
-dialog.photos::backdrop{background:rgba(14,34,64,.6)}
-.photos-head{position:sticky;top:0;background:#fff;display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line)}
-.photos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;padding:18px}
-.photos-grid figure{margin:0}
-.photos-grid img{width:100%;border-radius:10px}
-.photos-grid figcaption{font-size:13px;color:var(--muted);padding-top:4px}
-.center{padding:96px 0;text-align:center;display:flex;flex-direction:column;gap:16px;align-items:center}
-.center p{margin:0;color:var(--ink-2);max-width:520px}
-`;
-
-function layout(site, title, body, extra = '') {
+function layout(site, title, body, opts = {}) {
+  const desc = opts.description || 'Notre Dame vacation rentals, booked direct with Irish Management. Stay minutes from campus and Notre Dame Stadium and skip the extra fees.';
   return '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<title>' + esc(title) + '</title>' +
+    '<meta name="description" content="' + esc(desc) + '">' +
+    '<meta property="og:title" content="' + esc(title) + '"><meta property="og:description" content="' + esc(desc) + '">' +
+    (opts.image ? '<meta property="og:image" content="' + esc(opts.image) + '">' : '') +
+    '<link rel="icon" href="/img/favicon.png">' +
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap">' +
-    '<style>' + CSS + '</style>' + extra + '</head><body>' +
-    header(site) + body + footer(site) + '</body></html>';
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap">' +
+    (opts.map ? '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">' : '') +
+    '<link rel="stylesheet" href="/site.css?v=' + V + '">' +
+    '</head><body class="' + (opts.bodyClass || '') + '">' +
+    '<a class="skip" href="#main">Skip to content</a>' +
+    (opts.textBar && site.sms ? '<div class="textbar"><a href="sms:' + esc(site.sms) + '">Have questions? Text us</a></div>' : '') +
+    header(site, opts) +
+    '<main id="main">' + body + '</main>' + footer(site) +
+    '<script type="application/json" id="site-boot">' + json({ leadDays: site.leadDays }) + '</script>' +
+    (opts.map ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>' : '') +
+    '<script src="/app.js?v=' + V + '"></script>' +
+    (opts.script ? '<script src="/' + opts.script + '.js?v=' + V + '"></script>' : '') +
+    '</body></html>';
 }
 
-function header(site) {
-  return '<header class="site-header"><div class="wrap">' +
-    '<a class="brand" href="/"><span class="brand-mark">IM</span><span class="brand-name">' + esc(site.name) + '</span></a>' +
-    '<nav class="nav" aria-label="Main"><a href="/#stays">Stays</a><a href="/#game-weekends">Game weekends</a><a href="#contact">Contact</a></nav>' +
+function searchPill(q, extraClass) {
+  q = q || {};
+  const when = q.arrival && q.departure ? rangeLabel(q.arrival, q.departure) : '';
+  const who = q.guests ? plural(q.guests, 'guest') + (q.pets ? ', ' + plural(q.pets, 'pet') : '') : '';
+  return '<form class="pill ' + (extraClass || '') + '" action="/s" method="get" role="search" data-search>' +
+    '<button type="button" class="pill-seg pill-where" data-where>' + ICON.search + '<span>South Bend</span></button>' +
+    '<span class="pill-sep" aria-hidden="true"></span>' +
+    '<button type="button" class="pill-seg' + (when ? ' set' : '') + '" data-when aria-haspopup="dialog">' + (when ? esc(when) : 'When') + '</button>' +
+    '<span class="pill-sep" aria-hidden="true"></span>' +
+    '<button type="button" class="pill-seg' + (who ? ' set' : '') + '" data-who aria-haspopup="dialog">' + (who ? esc(who) : 'Who') + '</button>' +
+    '<input type="hidden" name="checkin" value="' + esc(q.arrival || '') + '"><input type="hidden" name="checkout" value="' + esc(q.departure || '') + '">' +
+    '<input type="hidden" name="guests" value="' + esc(q.guests || '') + '"><input type="hidden" name="pets" value="' + esc(q.pets || '') + '">' +
+    (q.bedrooms ? '<input type="hidden" name="bedrooms" value="' + esc(q.bedrooms) + '">' : '') +
+    '<button type="submit" class="pill-go">Search</button>' +
+    '</form>';
+}
+
+function rangeLabel(a, b) {
+  const da = new Date(a + 'T00:00:00Z'), db = new Date(b + 'T00:00:00Z');
+  const sameMonth = da.getUTCMonth() === db.getUTCMonth() && da.getUTCFullYear() === db.getUTCFullYear();
+  return shortDate(a) + ' - ' + (sameMonth ? db.getUTCDate() : shortDate(b));
+}
+
+function header(site, opts) {
+  return '<header class="site-header' + (opts.headerSearch ? ' with-search' : '') + '"><div class="hwrap">' +
+    '<a class="logo" href="/" aria-label="' + esc(site.name) + ' home"><img src="/img/logo.png" alt="' + esc(site.name) + '" width="36" height="36"></a>' +
+    (opts.headerSearch ? '<div class="hsearch">' + searchPill(opts.q) + (opts.filters ? opts.filters : '') + '</div>' : '') +
+    '<div class="menu-wrap"><button type="button" class="iconbtn" data-menu aria-expanded="false" aria-label="Menu">' + ICON.menu + '</button>' +
+      '<nav class="menu" aria-label="Main" hidden>' +
+        '<a href="/">Home</a><a href="/s">All homes</a><a href="/reviews">Guest reviews</a>' +
+        (site.sms ? '<a href="sms:' + esc(site.sms) + '">Text us</a>' : '') +
+        (site.email ? '<a href="mailto:' + esc(site.email) + '">Email us</a>' : '') +
+      '</nav></div>' +
     '</div></header>';
 }
 
 function footer(site) {
-  const contact = [
-    site.phone ? '<a href="tel:' + esc(site.phone.replace(/[^\d+]/g, '')) + '">' + esc(site.phone) + '</a>' : '',
-    site.email ? '<a href="mailto:' + esc(site.email) + '">' + esc(site.email) + '</a>' : '',
-  ].filter(Boolean).join(' &nbsp; ');
-  return '<footer class="site-footer" id="contact"><div class="wrap">' +
-    '<div><strong>' + esc(site.name) + '</strong><div>Short-term and long-term rentals in South Bend, Indiana.</div></div>' +
-    '<div>' + contact + '</div>' +
-    '<div>&copy; ' + new Date().getUTCFullYear() + ' Irish Management LLC</div>' +
-    '</div></footer>';
+  const contact = (site.phone || site.email)
+    ? '<div class="contactbar"><div class="fwrap"><strong>Contact Us</strong>' +
+      (site.phone ? '<a href="tel:' + esc(site.sms) + '">' + ICON.phoneSm + esc(site.phone) + '</a>' : '') +
+      (site.email ? '<a href="mailto:' + esc(site.email) + '">' + ICON.mail + esc(site.email) + '</a>' : '') +
+      '</div></div>'
+    : '';
+  const social = [
+    site.instagram ? '<a href="' + esc(site.instagram) + '" rel="noopener" target="_blank">Instagram</a>' : '',
+    site.facebook ? '<a href="' + esc(site.facebook) + '" rel="noopener" target="_blank">Facebook</a>' : '',
+  ].filter(Boolean).join('');
+  return '<footer class="site-footer">' + contact +
+    '<div class="fwrap fgrid"><div><img src="/img/logo.png" alt="' + esc(site.name) + '" width="32" height="32"></div>' +
+      (social ? '<div><h2>Social</h2>' + social + '</div>' : '') + '</div>' +
+    '<div class="fbottom"><div class="fwrap"><span>&copy; ' + new Date().getUTCFullYear() + ' ' + esc(site.name) + '</span>' +
+      '<nav aria-label="Legal"><a href="/terms">Terms of Service</a><span aria-hidden="true">&middot;</span><a href="/privacy-policy">Privacy Policy</a><span aria-hidden="true">&middot;</span><a href="/sitemap">Sitemap</a></nav></div></div>' +
+    '</footer>';
 }
+
+// ---------- Shared pieces ----------
 
 function propHref(p, q) {
   const params = new URLSearchParams();
-  if (q.arrival && q.departure) { params.set('checkin', q.arrival); params.set('checkout', q.departure); }
-  if (q.guests) params.set('guests', String(q.guests));
+  if (q && q.arrival && q.departure) { params.set('checkin', q.arrival); params.set('checkout', q.departure); }
+  else if (p.stay) { params.set('checkin', p.stay.arrival); params.set('checkout', p.stay.departure); }
+  if (q && q.guests) params.set('guests', String(q.guests));
+  if (q && q.pets) params.set('pets', String(q.pets));
   const qs = params.toString();
   return '/property/' + p.id + '/' + slug(p.title) + (qs ? '?' + qs : '');
 }
 
-function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+function rating(p) {
+  return p.reviews ? '<span class="rating">' + ICON.star + ' ' + p.rating.toFixed(2) + ' (' + p.reviews + ')</span>' : '';
+}
+
+function priceLine(p, q) {
+  if (q && q.searched) {
+    const n = Math.round((Date.parse(q.departure) - Date.parse(q.arrival)) / 86400000);
+    return '<p class="card-price" data-quote="' + p.id + '" data-arrival="' + esc(q.arrival) + '" data-departure="' + esc(q.departure) + '" data-guests="' + esc(q.guests || 1) + '" data-pets="' + esc(q.pets || 0) + '">' +
+      '<b class="ph">&nbsp;</b> for ' + plural(n, 'night') + '<span class="sep">&middot;</span>' + esc(shortDate(q.arrival) + ' – ' + shortDate(q.departure)) + '</p>';
+  }
+  if (!p.stay) return '';
+  return '<p class="card-price"><b>' + money(p.stay.price) + '</b> for ' + plural(p.stay.nights, 'night') + '<span class="sep">&middot;</span>' + esc(shortDate(p.stay.arrival) + ' – ' + shortDate(p.stay.departure)) + '</p>';
+}
+
+function card(p, q, eager) {
+  const photos = (p.photos || []).slice(0, 5);
+  return '<a class="card" href="' + esc(propHref(p, q)) + '" data-id="' + p.id + '">' +
+    '<div class="card-photos" data-carousel>' +
+      '<div class="track">' + photos.map((u, i) => '<img src="' + esc(u) + '" alt="' + (i ? '' : esc(p.title)) + '"' + (eager && !i ? '' : ' loading="lazy"') + ' decoding="async">').join('') + '</div>' +
+      (photos.length > 1
+        ? '<button type="button" class="car-btn prev" aria-label="Previous photo" tabindex="-1">' + ICON.left + '</button><button type="button" class="car-btn next" aria-label="Next photo" tabindex="-1">' + ICON.right + '</button>' +
+          '<div class="dots" aria-hidden="true">' + photos.map((_, i) => '<span' + (i ? '' : ' class="on"') + '></span>').join('') + '</div>'
+        : '') +
+    '</div>' +
+    '<div class="card-body"><div class="card-top"><p class="card-title">' + esc(p.title) + '</p>' + rating(p) + '</div>' +
+      '<p class="muted">' + esc([p.city, p.state].filter(Boolean).join(', ')) + '</p>' +
+      '<p class="muted">' + plural(p.bedrooms, 'bedroom') + '<span class="sep">&middot;</span>' + plural(p.bathrooms, 'bath', 'baths') + '</p>' +
+      priceLine(p, q) +
+    '</div></a>';
+}
+
+const PROMISES = [
+  ['dollar', 'Lower prices, every time', 'Pay less than you would anywhere else. No middlemen or platform fees.'],
+  ['phone', 'Direct line, real care', 'Book with the team that actually runs the property. Faster answers, better service, real accountability.'],
+  ['users', 'Not just a transaction', 'We go further for direct guests. We’re building a relationship, not closing a booking.'],
+];
+
+function reviewCard(r) {
+  return '<article class="rcard"><div><p class="rquote clamp4">“' + esc(r.text) + '”</p><button type="button" class="readmore" hidden>Read more</button></div>' +
+    '<div class="rmeta">' + stars(r.stars || 5) + '<h3>' + esc(r.name) + '</h3><p>Stayed in ' + esc(r.when) + '</p></div></article>';
+}
+
+// ---------- Pages ----------
 
 export function renderHome(site, d) {
-  const q = { arrival: d.searched ? d.arrival : '', departure: d.searched ? d.departure : '', guests: d.guests };
-  const heroPhoto = d.props.find((p) => p.photo);
-  const cards = d.props.map((p) =>
-    '<a class="card" href="' + esc(propHref(p, q)) + '">' +
-      '<div class="card-photo">' + (p.photo ? '<img src="' + esc(p.photo) + '" alt="" loading="lazy">' : '') + '</div>' +
-      '<div><div class="card-title">' + esc(p.title) + '</div>' +
-      '<div class="card-meta">' + esc([p.city, plural(p.bedrooms, 'bedroom'), plural(p.bathrooms, 'bath'), 'sleeps ' + p.maxGuests].filter(Boolean).join(', ')) + '</div></div>' +
-      '<span class="card-cta">' + (d.searched ? 'See price for your dates' : 'Check dates and prices') + '</span>' +
-    '</a>').join('');
-
-  const heading = d.searched
-    ? (d.props.length ? plural(d.props.length, 'home') + ' open ' + fmtDate(d.arrival) + ' to ' + fmtDate(d.departure) : 'No homes open for those dates')
-    : 'Stays near Notre Dame';
-  const sub = d.searched
-    ? (d.guests ? 'For ' + plural(d.guests, 'guest') + '. ' : '') + '<a href="/#stays">Clear search</a>'
-    : 'Live availability and pricing from our reservation system.';
-
+  const r = d.rating;
   const body =
-    '<section class="hero"><div class="wrap">' +
-      '<div class="hero-copy">' +
-        '<h1>Stay close to campus. Book direct with the local team.</h1>' +
-        '<p>Homes for game weekends, graduations, family visits, and longer stays, managed right here in South Bend.</p>' +
-        '<form class="search" action="/#stays" method="get" role="search">' +
-          '<label><span>Check in</span><input type="date" name="checkin" value="' + esc(d.arrival) + '" required></label>' +
-          '<label><span>Check out</span><input type="date" name="checkout" value="' + esc(d.departure) + '" required></label>' +
-          '<label><span>Guests</span><input type="number" name="guests" min="1" max="30" inputmode="numeric" value="' + esc(d.guests || '') + '" placeholder="Add guests"></label>' +
-          '<button type="submit">' + ICON.search + 'Search</button>' +
-        '</form>' +
-      '</div>' +
-      '<div class="hero-photo">' + (heroPhoto ? '<img src="' + esc(heroPhoto.photo) + '" alt="">' : '') + '</div>' +
-    '</div></section>' +
-    '<section class="section" id="stays"><div class="wrap">' +
-      (d.notice ? '<p class="notice">' + esc(d.notice) + '</p>' : '') +
-      '<div class="section-head"><div><h2>' + esc(heading) + '</h2><p>' + sub + '</p></div></div>' +
-      (d.props.length ? '<div class="cards">' + cards + '</div>'
-        : '<div class="empty"><p>Try different dates, or contact us and we will help you find a fit.</p></div>') +
-    '</div></section>' +
-    '<div class="wrap"><div class="values">' +
-      '<div class="value">' + ICON.pin + '<h3>A local team, minutes away</h3><p>Talk to the people who actually manage the home, not a call center.</p></div>' +
-      '<div class="value">' + ICON.wallet + '<h3>No booking site fees</h3><p>Book here and skip the guest service fees charged by the big booking sites.</p></div>' +
-      '<div class="value">' + ICON.lock + '<h3>Secure checkout</h3><p>Rates, fees, and taxes are calculated live, and payment is processed securely.</p></div>' +
-    '</div>' +
-    '<div class="band" id="game-weekends"><div><h2>Football weekends book early</h2><p>Home game dates fill months ahead. Search your dates now or contact us about multi-night game weekend stays.</p></div>' +
-      '<a class="btn" href="#contact">Ask about game weekends</a></div></div>';
+    '<section class="hero"><div class="hero-media"><img src="/img/hero.jpg" alt="" fetchpriority="high"></div>' +
+      '<div class="hero-copy"><h1>Notre Dame Vacation Rentals, Booked Direct</h1>' +
+      '<p>From cozy condos to game-day estates, stay minutes from campus and Notre Dame Stadium. Book direct with Irish Management and skip the extra fees.</p>' +
+      searchPill({}) + '</div></section>' +
+    '<section class="wrap props"><h2 class="eyebrow-h">Our Properties</h2><div class="grid4">' + d.props.map((p, i) => card(p, null, i < 4)).join('') + '</div>' +
+      '<div class="center-btn"><a class="chip" href="/s">See more properties</a></div></section>' +
+    '<section class="occasions"><div class="wrap"><p class="sub">From intimate retreats to estates that sleep 25+, each property is thoughtfully appointed for comfort and style.</p>' +
+      '<h2>Homes for Every Occasion</h2><div class="occ-grid">' +
+      [['occasion-meal', 'Gather Together', 'Space to Share a Meal'], ['occasion-yards', 'Room to Spread Out', 'Yards Made for Tailgates'], ['occasion-kickoff', 'Game Day Ready', 'Rest Up for Kickoff']]
+        .map(([img, a, b]) => '<a class="occ" href="/s"><img src="/img/' + img + '.jpg" alt="" loading="lazy"><div><p>' + a + '</p><h3>' + b + '</h3></div></a>').join('') +
+      '</div></div></section>' +
+    (r.count
+      ? '<section class="guests wrap"><p class="sub">What Guests Say</p><h2>Trusted by Travelers</h2>' +
+        '<p class="big">' + r.average.toFixed(2) + '</p>' + stars(5, 16) + '<p class="count">' + r.count.toLocaleString('en-US') + ' reviews</p>' +
+        (d.reviews.length ? '<div class="rgrid">' + d.reviews.map(reviewCard).join('') + '</div>' : '') +
+        '<div class="center-btn"><a class="chip" href="/reviews">Show all ' + r.count.toLocaleString('en-US') + ' reviews</a></div></section>'
+      : '') +
+    '<section class="band" style="--bg:url(/img/welcome.jpg)"><div class="band-in"><p class="sub">Irish Management</p><h2>Welcoming Guests to Notre Dame</h2>' +
+      '<div class="stats"><div><p>65+</p><p>Properties Managed</p></div><div><p>3 Cities</p><p>Across the Region</p></div><div><p>24/7</p><p>Guest Support</p></div></div></div></section>' +
+    '<section class="direct wrap"><h2>Get more when you book direct</h2><div class="direct-grid">' +
+      PROMISES.map(([i, t, s]) => '<div><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + s + '</p></div>').join('') + '</div></section>' +
+    '<section class="band cta" style="--bg:url(/img/come-stay.jpg)"><div class="band-in"><p class="sub">From Our South Bend Team</p><h2>Come Stay in Notre Dame Country</h2><a class="chip" href="/s">Browse Homes</a></div></section>';
 
-  return layout(site, site.name + ' | South Bend and Notre Dame vacation rentals', body);
+  return layout(site, 'Notre Dame Vacation Rentals | Book Direct - ' + site.name, body, { bodyClass: 'home', image: '/img/hero.jpg' });
+}
+
+export function renderSearch(site, d) {
+  const q = d.q;
+  const pins = d.props.filter((p) => p.lat != null && p.lng != null).map((p) => ({
+    id: p.id, lat: p.lat, lng: p.lng, title: p.title, href: propHref(p, q.searched ? q : null),
+    price: q.searched ? null : (p.stay ? money(p.stay.price) : null), photo: (p.photos || [])[0] || '',
+  }));
+  const filters = '<div class="filters-wrap"><button type="button" class="filters-btn" data-filters aria-expanded="false">' + ICON.sliders + 'Filters' + (q.bedrooms ? ' (1)' : '') + '</button>' +
+    '<form class="pop filters-pop" action="/s" method="get" hidden>' +
+      ['checkin', 'checkout', 'guests', 'pets'].map((k) => { const v = { checkin: q.arrival, checkout: q.departure, guests: q.guests, pets: q.pets }[k]; return v ? '<input type="hidden" name="' + k + '" value="' + esc(v) + '">' : ''; }).join('') +
+      '<p class="pop-title">Bedrooms</p><div class="seg">' +
+      [0, 1, 2, 3, 4, 5, 6].map((n) => '<label><input type="radio" name="bedrooms" value="' + (n || '') + '"' + ((q.bedrooms || 0) === n ? ' checked' : '') + '><span>' + (n ? n + '+' : 'Any') + '</span></label>').join('') +
+      '</div><div class="pop-actions"><a href="/s' + (q.arrival ? '?checkin=' + esc(q.arrival) + '&amp;checkout=' + esc(q.departure) : '') + '" class="linkbtn">Clear</a><button class="btn-dark" type="submit">Show homes</button></div></form></div>';
+  const body =
+    '<div class="search-layout"><section class="results">' +
+      (d.notice ? '<p class="notice">' + esc(d.notice) + '</p>' : '') +
+      '<h1 class="eyebrow-h">' + plural(d.props.length, 'property', 'properties') + ' available</h1>' +
+      (d.props.length ? '<div class="grid2">' + d.props.map((p, i) => card(p, q, i < 4)).join('') + '</div>'
+        : '<div class="empty"><p>No homes match those dates. Try different dates, or text us and we will help you find a fit.</p><a class="chip" href="/s">Clear search</a></div>') +
+    '</section><aside class="mapcol"><div id="map" class="map" aria-label="Map of homes"></div></aside></div>' +
+    '<script type="application/json" id="pins">' + json(pins) + '</script>';
+  return layout(site, (q.searched ? 'Homes open ' + rangeLabel(q.arrival, q.departure) : 'All homes') + ' | ' + site.name, body,
+    { headerSearch: true, q, filters, map: true, script: 'search', bodyClass: 'searchpage' });
 }
 
 export function renderProperty(site, d) {
   const p = d.prop;
-  const l = d.listing || { available: false };
-  const photos = (l.available && l.photos.length) ? l.photos : (p.photo ? [{ url: p.photo, caption: '' }] : []);
+  const l = d.listing && d.listing.available ? d.listing : null;
+  const photos = l && l.photos.length ? l.photos : (p.photo ? [{ url: p.photo, caption: '' }] : []);
+  const location = [p.city, p.state].filter(Boolean).join(', ');
+  const sleeps = (l && l.sleepsMax) || p.maxGuests;
+  const reviewCount = l ? l.reviewCount : 0;
 
-  const gallery = '<div class="gallery">' +
-    [0, 1, 2, 3, 4].map((i) => '<div class="ph">' + (photos[i] ? '<img src="' + esc(photos[i].url) + '" alt="' + esc(photos[i].caption || p.title) + '"' + (i ? ' loading="lazy"' : '') + '>' : '') + '</div>').join('') +
-    (photos.length > 1 ? '<button class="gallery-btn" type="button" id="show-photos">' + ICON.grid + 'Show all ' + photos.length + ' photos</button>' : '') +
-    '</div>';
+  const gallery = '<section class="gallery" id="photos" data-count="' + photos.length + '">' +
+    [0, 1, 2, 3, 4].map((i) => '<button type="button" class="ph ph' + i + '" data-photo="' + i + '">' + (photos[i] ? '<img src="' + esc(photos[i].url) + '" alt="' + esc(photos[i].caption || (i ? '' : p.title)) + '"' + (i ? ' loading="lazy"' : ' fetchpriority="high"') + '>' : '') + '</button>').join('') +
+    (photos.length > 1 ? '<button type="button" class="chip gallery-all" data-photo="0">View all ' + photos.length + ' photos</button>' : '') +
+    '</section>';
 
-  const dialog = photos.length > 1
-    ? '<dialog class="photos" id="photos" aria-label="All photos"><div class="photos-head"><strong>' + esc(p.title) + '</strong><button class="linkbtn" type="button" id="close-photos">Close</button></div><div class="photos-grid">' +
-      photos.map((ph) => '<figure><img src="' + esc(ph.url) + '" alt="' + esc(ph.caption || '') + '" loading="lazy">' + (ph.caption ? '<figcaption>' + esc(ph.caption) + '</figcaption>' : '') + '</figure>').join('') +
-      '</div></dialog>'
-    : '';
+  const photosDialog = '<dialog class="modal photos-modal" id="photos-modal" aria-label="All photos"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>' + esc(p.title) + '</strong><span></span></div>' +
+    '<div class="photo-list">' + photos.map((ph, i) => '<figure id="photo-' + i + '"><img src="' + esc(ph.url) + '" alt="' + esc(ph.caption || '') + '" loading="lazy">' + (ph.caption ? '<figcaption>' + esc(ph.caption) + '</figcaption>' : '') + '</figure>').join('') + '</div></dialog>';
 
-  const sleeps = l.available && l.sleepsMax ? l.sleepsMax : p.maxGuests;
-  const facts = ['Sleeps ' + sleeps, plural(p.bedrooms, 'bedroom'), plural(p.bathrooms, 'bath')];
-  if (p.livingArea) facts.push(p.livingArea.toLocaleString('en-US') + ' ' + (p.livingAreaType || 'sq. ft.'));
-  const rating = l.available && l.reviewCount ? ', ' + l.reviewAverage.toFixed(1) + ' from ' + plural(l.reviewCount, 'review') : '';
+  const facts = [plural(p.bedrooms, 'bedroom')];
+  if (l && l.beds) facts.push(plural(l.beds, 'bed'));
+  facts.push(plural(p.bathrooms, 'bath', 'baths'), plural(sleeps, 'guest'));
 
-  const desc = l.available ? (l.description || l.summary) : '';
-  const descBlock = desc
-    ? '<section class="block"><h2>About this home</h2><div class="desc clamp" id="desc">' + paragraphs(desc) + '</div>' +
-      '<button type="button" class="linkbtn" id="desc-more" style="align-self:flex-start">Show more</button></section>'
-    : '';
+  const titleBlock = '<section class="ptitle" id="overview"><div><p class="muted">' + esc(location) + '</p><h1>' + esc(p.title) + '</h1>' +
+    '<p class="facts">' + facts.map(esc).join(' <span aria-hidden="true">&middot;</span> ') +
+    (reviewCount ? ' <span aria-hidden="true">&middot;</span> <a href="#reviews" class="rlink">' + ICON.star + ' ' + l.reviewAverage.toFixed(2) + ' (' + reviewCount + ')</a>' : '') + '</p></div>' +
+    '<button type="button" class="iconbtn share" data-share aria-label="Share">' + ICON.share + '</button></section>';
 
-  const rooms = l.available && l.rooms.length
-    ? '<section class="block"><h2>Where you\'ll sleep</h2><div class="rooms">' +
-      l.rooms.map((r) => '<div class="room">' + ICON.bed + '<strong>' + esc(r.name) + '</strong><span>' + esc(r.description || plural(r.beds, 'bed')) + '</span></div>').join('') +
-      '</div></section>'
+  const desc = l ? (l.description || l.summary) : '';
+  const about = desc
+    ? '<section class="psec" id="about"><div class="desc clamp5" id="desc">' + paragraphs(desc) + '</div><button type="button" class="chip" id="desc-more">Read more</button></section>'
     : '';
 
   let amenities = '';
-  if (l.available && l.amenities.length) {
+  if (l && l.amenities.length) {
     const flat = [];
     l.amenities.forEach((c) => c.items.forEach((i) => { if (!flat.includes(i)) flat.push(i); }));
-    const top = (l.callouts.length ? l.callouts : flat).slice(0, 10);
-    amenities = '<section class="block"><h2>What this place offers</h2><ul class="amenities">' +
-      top.map((a) => '<li>' + ICON.check + esc(a) + '</li>').join('') + '</ul>' +
-      (flat.length > top.length
-        ? '<details class="more"><summary>Show all ' + flat.length + ' amenities</summary>' +
-          l.amenities.map((c) => '<h3>' + esc(c.caption) + '</h3><ul class="amenities">' + c.items.map((a) => '<li>' + ICON.check + esc(a) + '</li>').join('') + '</ul>').join('') +
-          '</details>'
-        : '') +
-      '</section>';
+    const top = flat.slice(0, 8);
+    amenities = '<section class="psec" id="amenities"><h2>What this home offers</h2><ul class="amen">' +
+      top.map((a) => '<li>' + amenityIcon(a) + '<span>' + esc(a) + '</span></li>').join('') + '</ul>' +
+      (flat.length > top.length ? '<button type="button" class="chip" data-open="amen-modal">Show all ' + flat.length + ' amenities</button>' : '') + '</section>' +
+      '<dialog class="modal" id="amen-modal" aria-label="Amenities"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>What this home offers</strong><span></span></div><div class="modal-body">' +
+      l.amenities.map((c) => '<h3>' + esc(c.caption) + '</h3><ul class="amen one">' + c.items.map((a) => '<li>' + amenityIcon(a) + '<span>' + esc(a) + '</span></li>').join('') + '</ul>').join('') +
+      '</div></dialog>';
   }
 
-  const map = p.lat != null && p.lng != null
-    ? '<section class="block"><h2>Where you\'ll be</h2>' +
-      '<iframe class="map" title="Map of the area around this home" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=' +
-      [p.lng - 0.02, p.lat - 0.012, p.lng + 0.02, p.lat + 0.012].map((n) => n.toFixed(4)).join('%2C') + '&amp;layer=mapnik"></iframe>' +
-      '<p>' + esc([p.city, p.state].filter(Boolean).join(', ')) + '. The exact address is shared after booking.</p></section>'
+  const reviews = d.reviews || [];
+  const reviewItem = (r) => '<article class="review"><div class="rhead"><span class="avatar">' + esc(r.name.charAt(0).toUpperCase()) + '</span><strong>' + esc(r.name) + '</strong></div>' +
+    '<p class="rsub">' + stars(r.stars, 11) + ' <span aria-hidden="true">&middot;</span> ' + esc(r.when) + '</p><p class="rtext">' + esc(r.text) + '</p></article>';
+  const reviewsBlock = reviewCount || reviews.length
+    ? '<section class="psec" id="reviews"><h2>What our guests say</h2>' +
+      (reviewCount ? '<div class="rsum"><p>' + l.reviewAverage.toFixed(2) + ' ' + ICON.star.replace(/14/g, '22') + '</p><p class="muted b">' + plural(reviewCount, 'review') + '</p></div>' : '') +
+      reviews.slice(0, 3).map(reviewItem).join('') +
+      (reviews.length > 3 ? '<button type="button" class="chip" data-open="reviews-modal">Show all reviews</button>' : '') + '</section>' +
+      (reviews.length > 3 ? '<dialog class="modal" id="reviews-modal" aria-label="Reviews"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>' + (reviewCount ? l.reviewAverage.toFixed(2) + ' · ' + plural(reviewCount, 'review') : 'Reviews') + '</strong><span></span></div><div class="modal-body">' + reviews.map(reviewItem).join('') + '</div></dialog>' : '')
     : '';
 
-  const rules = '<section class="block"><h2>Things to know</h2><div class="rules">' +
-    '<div><strong>House rules</strong>' +
-      (p.checkIn ? '<span>Check-in after ' + esc(fmtTime(p.checkIn)) + '</span>' : '') +
-      (p.checkOut ? '<span>Checkout before ' + esc(fmtTime(p.checkOut)) + '</span>' : '') +
-      '<span>Up to ' + esc(p.maxGuests) + ' guests</span>' +
-      (p.maxPets ? '<span>Pets allowed (up to ' + esc(p.maxPets) + ')</span>' : '<span>No pets</span>') +
-    '</div>' +
-    (l.available && l.cancellationPolicy ? '<div><strong>Cancellation policy</strong><span>' + esc(l.cancellationPolicy) + '</span></div>' : '') +
-    '<div><strong>Rental agreement</strong><span>Signed during checkout</span></div>' +
-    '</div></section>';
+  const where = p.lat != null && p.lng != null
+    ? '<section class="psec" id="location"><h2>Where you’ll be</h2><p class="muted">' + esc([p.city, p.state, p.zip, 'US'].filter(Boolean).join(', ')) + '</p>' +
+      '<div class="map pmap" id="pmap" data-lat="' + p.lat + '" data-lng="' + p.lng + '" aria-label="Map of the area around this home"></div>' +
+      '<p class="muted small">The exact address is shared after booking.</p></section>'
+    : '';
 
-  const fromPrice = l.available && l.nightlyMin ? '$' + Math.round(l.nightlyMin).toLocaleString('en-US') : '';
+  const promise = '<section class="psec wide" id="promise"><h2>Our promise to you</h2><div class="promise">' +
+    PROMISES.map(([i, t]) => '<div>' + ICON[i].replace(/width="24" height="24"/, 'width="22" height="22"') + '<p>' + t + '</p></div>').join('') + '</div>' +
+    '<button type="button" class="chip" data-open="promise-modal">Learn more</button></section>' +
+    '<dialog class="modal" id="promise-modal" aria-label="Our promise"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Get more when you book direct</strong><span></span></div><div class="modal-body promise-list">' +
+    PROMISES.map(([i, t, s]) => '<div><span class="ibox">' + ICON[i] + '</span><div><h3>' + t + '</h3><p>' + s + '</p></div></div>').join('') + '</div></dialog>';
+
+  const rules = [];
+  if (l && l.houseRules.length) rules.push(...l.houseRules.map((r) => r.replace(/\.?$/, '.')));
+  else {
+    rules.push('Maximum ' + plural(p.maxGuests, 'guest') + '.');
+    rules.push(p.maxPets ? 'Pets allowed (up to ' + p.maxPets + ').' : 'No pets allowed.');
+  }
+  const allRules = rules.concat(l ? l.expectations.map((e) => e.replace(/\.?$/, '.')) : []);
+  const cancel = l && l.cancellationPolicy ? l.cancellationPolicy : '';
+  const cancelFirst = cancel ? (cancel.match(/^.*?[.!?](\s|$)/) || [cancel])[0].trim() : '';
+  const things = '<section class="psec wide" id="things"><h2>Things to know</h2><div class="things">' +
+    '<div>' + ICON.home + '<h3>Check-in &amp; check-out</h3>' + (p.checkIn ? '<p>Check-in after ' + esc(fmtTime(p.checkIn)) + '.</p>' : '') + (p.checkOut ? '<p>Check-out before ' + esc(fmtTime(p.checkOut)) + '.</p>' : '') + '</div>' +
+    '<div>' + ICON.note + '<h3>Property rules</h3>' + rules.slice(0, 5).map((r) => '<p>' + esc(r) + '</p>').join('') +
+      (allRules.length > 5 ? '<button type="button" class="textlink" data-open="rules-modal">Read more</button>' : '') + '</div>' +
+    '<div>' + ICON.badge + '<h3>Cancellation policy</h3>' + (cancel ? '<p class="dark">' + esc(cancelFirst) + '</p>' + (cancel.length > cancelFirst.length ? '<button type="button" class="textlink dark" data-open="cancel-modal">Learn more</button>' : '') : '<p>Shown during checkout.</p>') + '</div>' +
+    '</div></section>' +
+    '<dialog class="modal" id="rules-modal" aria-label="Property rules"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Property rules</strong><span></span></div><div class="modal-body">' + allRules.map((r) => '<p>' + esc(r) + '</p>').join('') + '</div></dialog>' +
+    (cancel ? '<dialog class="modal" id="cancel-modal" aria-label="Cancellation policy"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Cancellation policy</strong><span></span></div><div class="modal-body">' + paragraphs(cancel.replace(/(\.)\s+(?=[A-Z])/g, '.\n\n')) + '</div></dialog>' : '');
 
   const card =
-    '<aside class="aside" aria-label="Book this home">' +
-      '<div class="book">' +
-        '<div class="price" id="price">' + (fromPrice ? '<span>From</span><strong>' + fromPrice + '</strong><span>night</span>' : '<strong>Add dates</strong><span>for prices</span>') + '</div>' +
-        '<div class="fields">' +
-          '<div class="two">' +
-            '<button type="button" class="datebtn" data-goto-cal><span class="flabel">Check in</span><span class="fval" id="f-in">Add date</span></button>' +
-            '<button type="button" class="datebtn" data-goto-cal><span class="flabel">Checkout</span><span class="fval" id="f-out">Add date</span></button>' +
-          '</div>' +
-          '<div class="guests"><div><div class="flabel">Guests</div><div class="fval" id="f-guests"></div></div>' +
-            '<div class="stepper"><button type="button" id="g-minus" aria-label="Fewer guests">&minus;</button><button type="button" id="g-plus" aria-label="More guests">+</button></div></div>' +
-        '</div>' +
-        '<div id="quote" aria-live="polite"></div>' +
-        '<button class="btn btn-block" type="button" id="reserve" disabled>Reserve</button>' +
-        '<form class="guest-form" id="guest-form" novalidate>' +
-          '<label>First name<input name="first_name" autocomplete="given-name" required></label>' +
-          '<label>Last name<input name="last_name" autocomplete="family-name" required></label>' +
-          '<label>Email<input name="email" type="email" autocomplete="email" required></label>' +
-          '<label>Phone<input name="phone" type="tel" autocomplete="tel"></label>' +
-          '<div class="hp" aria-hidden="true"><label>Company<input name="company" tabindex="-1" autocomplete="off"></label></div>' +
-          '<button class="btn btn-block" type="submit" id="checkout">Continue to secure checkout</button>' +
-          '<p class="err" id="book-err" role="alert"></p>' +
-        '</form>' +
-        '<p class="small" id="card-note">Pick your dates to see the full price. You won\'t be charged until you confirm on the next page.</p>' +
-      '</div>' +
-      '<div class="direct">' + ICON.wallet + '<span>Booking direct means no booking site service fee.</span></div>' +
-    '</aside>';
+    '<aside class="bookcol" aria-label="Book this home"><div class="book" id="book">' +
+      '<p class="direct-note" hidden id="b-direct">' + ICON.tag + 'You’re booking direct for the best price</p>' +
+      '<h3 id="b-title">Choose available dates</h3>' +
+      '<p class="b-price" id="b-price" hidden></p>' +
+      '<div class="b-dates"><button type="button" class="field" data-field="in"><span class="flabel">Check-in</span><span class="fval" id="f-in">Add date</span></button>' +
+        '<button type="button" class="field" data-field="out"><span class="flabel">Check-out</span><span class="fval" id="f-out">Add date</span></button></div>' +
+      '<div class="guests-wrap"><button type="button" class="field guests-btn" id="g-btn" aria-expanded="false"><span><span class="flabel">Guests</span><span class="fval" id="f-guests"></span></span>' + ICON.down + '</button>' +
+        '<div class="pop guests-pop" id="g-pop" hidden>' +
+          '<div class="step"><div><strong>Guests</strong><span class="muted small">Up to ' + esc(p.maxGuests || 16) + '</span></div><div class="stepper"><button type="button" data-step="guests" data-d="-1" aria-label="Fewer guests">&minus;</button><span id="g-n"></span><button type="button" data-step="guests" data-d="1" aria-label="More guests">+</button></div></div>' +
+          (p.maxPets ? '<div class="step"><div><strong>Pets</strong><span class="muted small">Up to ' + esc(p.maxPets) + '</span></div><div class="stepper"><button type="button" data-step="pets" data-d="-1" aria-label="Fewer pets">&minus;</button><span id="p-n"></span><button type="button" data-step="pets" data-d="1" aria-label="More pets">+</button></div></div>' : '') +
+        '</div></div>' +
+      '<div id="b-body" aria-live="polite"></div>' +
+      '<button type="button" class="btn-gold" id="reserve" hidden>Reserve</button>' +
+      '<button type="button" class="btn-soft" id="b-action">Check availability</button>' +
+      '<form class="guest-form" id="guest-form" novalidate hidden>' +
+        '<p class="pop-title">Who’s booking?</p>' +
+        '<div class="two"><label>First name<input name="first_name" autocomplete="given-name" required></label><label>Last name<input name="last_name" autocomplete="family-name" required></label></div>' +
+        '<label>Email<input name="email" type="email" autocomplete="email" required></label>' +
+        '<label>Phone<input name="phone" type="tel" autocomplete="tel"></label>' +
+        '<div class="hp" aria-hidden="true"><label>Company<input name="company" tabindex="-1" autocomplete="off"></label></div>' +
+        '<button class="btn-gold" type="submit" id="checkout">Continue to secure checkout</button>' +
+        '<p class="err" id="book-err" role="alert"></p>' +
+      '</form>' +
+      '<p class="small muted center">You won’t be charged yet.</p>' +
+    '</div></aside>';
 
-  const calendar =
-    '<section class="block" id="dates"><div class="cal-head"><div><h2 id="cal-title">Select your dates</h2><div class="cal-note" id="cal-sub">Choose a check-in date.</div></div>' +
-      '<div class="cal-nav"><button type="button" id="cal-prev" aria-label="Previous month">' + ICON.left + '</button><button type="button" id="cal-next" aria-label="Next month">' + ICON.right + '</button></div></div>' +
-      '<div class="months" id="months"><p class="cal-note">Loading availability</p></div>' +
-      '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span class="cal-note">Crossed-out dates are not available.</span><button type="button" class="linkbtn" id="clear-dates">Clear dates</button></div>' +
-    '</section>';
+  const tabs = '<nav class="ptabs" id="ptabs" aria-label="Sections" hidden><div class="wrap">' +
+    [['photos', 'Photos'], ['overview', 'Overview'], ['about', 'About', about], ['amenities', 'Amenities', amenities], ['reviews', 'Reviews', reviewsBlock], ['location', 'Location', where], ['things', 'Things to know']]
+      .filter((t) => t.length < 3 || t[2]).map(([id, label]) => '<a href="#' + id + '">' + label + '</a>').join('') + '</div></nav>';
 
   const boot = {
-    id: p.id,
-    maxGuests: p.maxGuests || 16,
-    arrival: d.stay.arrival,
-    departure: d.stay.departure,
-    guests: d.guests,
+    id: p.id, maxGuests: p.maxGuests || 16, maxPets: p.maxPets || 0,
+    arrival: d.stay.arrival, departure: d.stay.departure, guests: d.guests, pets: d.pets || 0,
   };
 
-  const body =
-    '<div class="wrap">' +
-      '<div class="prop-top"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Stays</a> / ' + esc(p.city || 'South Bend') + '</nav>' +
-        '<h1>' + esc(p.title) + '</h1><div class="prop-sub">' + esc([p.city, p.state].filter(Boolean).join(', ') + '. ' + facts.join(', ') + rating) + '</div></div>' +
-      gallery +
-      '<div class="layout"><div class="main">' +
-        '<section class="block"><div class="host"><div><h2>Entire home managed by ' + esc(site.name) + '</h2><div class="prop-sub">' + esc(facts.join(', ')) + '</div></div><span class="brand-mark" aria-hidden="true">IM</span></div></section>' +
-        '<section class="block">' +
-          '<div class="highlight">' + ICON.lock + '<div><strong>Self check-in</strong><span>Your personal door code arrives before your stay.</span></div></div>' +
-          '<div class="highlight">' + ICON.chat + '<div><strong>Local team on call</strong><span>Questions during your stay go straight to our South Bend team.</span></div></div>' +
-        '</section>' +
-        descBlock + rooms + amenities + calendar + map + rules +
-      '</div>' + card + '</div>' +
-    '</div>' + dialog +
-    '<script type="application/json" id="boot">' + JSON.stringify(boot).replace(/</g, '\\u003c') + '</script>' +
-    '<script>' + CLIENT_JS + '</script>';
+  const body = tabs +
+    '<div class="wrap">' + gallery +
+      '<div class="playout"><div class="pmain">' + titleBlock + about + amenities + reviewsBlock + where + '</div>' + card + '</div>' +
+      promise + things +
+    '</div>' + photosDialog +
+    '<script type="application/json" id="boot">' + json(boot) + '</script>';
 
-  return layout(site, p.title + ' | ' + site.name, body);
+  return layout(site, p.title + ' | ' + site.name, body, {
+    headerSearch: true, textBar: true, q: { arrival: d.stay.arrival, departure: d.stay.departure }, map: !!where, script: 'property', bodyClass: 'proppage',
+    description: (l && (l.summary || l.headline)) || undefined, image: photos[0] && photos[0].url,
+  });
+}
+
+export function renderReviews(site, d) {
+  const r = d.rating;
+  const body = '<section class="guests wrap page-pad"><p class="sub">What Guests Say</p><h1>Trusted by Travelers</h1>' +
+    (r.count ? '<p class="big">' + r.average.toFixed(2) + '</p>' + stars(5, 16) + '<p class="count">' + r.count.toLocaleString('en-US') + ' reviews</p>' : '') +
+    '<div class="rgrid">' + d.reviews.map((x) => reviewCard(x).replace('<div class="rmeta">', '<div class="rmeta"><p class="muted small">' + esc(x.property) + '</p>')).join('') + '</div>' +
+    '<div class="center-btn"><a class="chip" href="/s">Browse Homes</a></div></section>';
+  return layout(site, 'Guest reviews | ' + site.name, body);
+}
+
+export function renderSitemap(site, d) {
+  const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li><li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
+    '<h2>Homes</h2><ul>' + d.props.map((p) => '<li><a href="' + esc(propHref(p)) + '">' + esc(p.title) + '</a></li>').join('') + '</ul></section>';
+  return layout(site, 'Sitemap | ' + site.name, body);
+}
+
+function legal(site, title, sections) {
+  return layout(site, title + ' | ' + site.name, '<article class="wrap legal"><h1>' + esc(title) + '</h1>' + sections + '</article>');
+}
+
+const contactBlock = (site) => '<p>' + esc(site.name) + '<br>1539 N Ironwood Dr, South Bend, IN 46635' +
+  (site.email ? '<br>Email: <a href="mailto:' + esc(site.email) + '">' + esc(site.email) + '</a>' : '') +
+  (site.phone ? '<br>Phone: <a href="tel:' + esc(site.sms) + '">' + esc(site.phone) + '</a>' : '') + '</p>';
+
+export function renderTerms(site) {
+  return legal(site, 'Terms of Service',
+    '<p>These Terms of Service ("Terms") govern your use of this website and your booking of accommodations from Irish Management ("we", "us", "our"). By accessing this site or making a reservation, you agree to these Terms.</p>' +
+    '<h2>1. Reservations and Bookings</h2><p>A reservation is confirmed only after you complete the booking flow and we (or our payment processor) successfully charge the required amount. We may decline or cancel a reservation at our discretion, including for suspected fraud, misrepresentation, violation of these Terms, or unavailability of the property. Confirmed reservations are subject to the cancellation policy disclosed at the time of booking.</p>' +
+    '<h2>2. Payment, Fees, and Taxes</h2><p>You agree to pay the total amount disclosed at checkout, including nightly rates, fees, deposits, and applicable taxes. Charges are processed by our payment provider; by providing payment information, you authorize us to charge the amount due. We may place a hold or pre-authorization on your payment method to cover incidentals or damage.</p>' +
+    '<h2>3. Cancellations and Refunds</h2><p>The cancellation policy that applies to your reservation is the one shown at checkout and on your booking confirmation. Refunds, if any, are issued under that policy and may take several business days to appear on your statement, depending on your payment provider.</p>' +
+    '<h2>4. Guest Conduct and House Rules</h2><p>By staying at one of our properties, you agree to:</p><ul><li>Use the property solely for short-term lodging by the registered guests.</li><li>Comply with house rules, occupancy limits, and any community or HOA regulations.</li><li>Respect quiet hours and neighbors; no parties or events without prior written approval.</li><li>Refrain from illegal activity, smoking where prohibited, and any conduct that damages the property or disturbs others.</li></ul><p>We may terminate a stay without refund and pursue costs and damages if these rules are violated.</p>' +
+    '<h2>5. Damage, Loss, and Liability</h2><p>You are responsible for damage to the property or its contents caused during your stay, beyond ordinary wear and tear. We may charge your payment method for repair or replacement costs. To the maximum extent permitted by law, we are not liable for indirect, incidental, or consequential damages, and our total liability for any claim arising out of or relating to your stay or use of this site is limited to the amount you paid for the reservation in question.</p>' +
+    '<h2>6. Assumption of Risk</h2><p>Use of pools, hot tubs, kitchens, outdoor areas, equipment, and surrounding amenities is at your own risk. You are responsible for the safety and supervision of any minors or guests in your party.</p>' +
+    '<h2>7. Intellectual Property</h2><p>All content on this site, including text, images, logos, and design, is owned by or licensed to Irish Management or our service providers and is protected by intellectual property laws. You may not copy, modify, or redistribute it without our written permission.</p>' +
+    '<h2>8. Privacy</h2><p>Our handling of personal information is described in our <a href="/privacy-policy">Privacy Policy</a>. By using this site or making a booking, you acknowledge that policy.</p>' +
+    '<h2>9. Changes to These Terms</h2><p>We may update these Terms from time to time. Material changes will take effect when posted; continued use of the site after that point constitutes acceptance of the updated Terms.</p>' +
+    '<h2>10. Contact</h2><p>For questions about these Terms or your reservation:</p>' + contactBlock(site));
+}
+
+export function renderPrivacy(site) {
+  return legal(site, 'Privacy Policy',
+    '<p>This Privacy Policy describes how Irish Management ("we", "us", "our") collects, uses, and shares information about guests and visitors who use our website and book stays at properties we manage. By using this site or making a booking, you agree to the practices described below.</p>' +
+    '<h2>1. Information We Collect</h2><p>We collect the following categories of information:</p><ul>' +
+    '<li><strong>Contact details:</strong> name, email address, phone number, and mailing address you provide when booking a stay or contacting us.</li>' +
+    '<li><strong>Booking details:</strong> dates, property selected, number of guests, and any preferences or special requests you share with us.</li>' +
+    '<li><strong>Payment information:</strong> billing address and payment card details, which are processed by our payment provider; we do not store full card numbers on our servers.</li>' +
+    '<li><strong>Identity and stay verification:</strong> government-issued ID or similar documents where required to confirm a reservation.</li>' +
+    '<li><strong>Device and usage data:</strong> IP address, browser type, pages viewed, and similar information collected automatically when you use the site.</li>' +
+    '<li><strong>Communications:</strong> messages you send us by email, phone, or text.</li></ul>' +
+    '<h2>2. How We Use Your Information</h2><p>We use the information we collect to:</p><ul><li>Process and confirm reservations, payments, and refunds.</li><li>Communicate with you about your stay, including check-in details and support.</li><li>Verify identity, prevent fraud, and enforce our policies.</li><li>Comply with legal, tax, and regulatory obligations.</li><li>Improve the website, respond to inquiries, and, with your consent, send marketing communications you can opt out of at any time.</li></ul>' +
+    '<h2>3. How We Share Your Information</h2><p>We share information only as needed to operate our business:</p><ul>' +
+    '<li><strong>Service providers:</strong> our reservation system, payment processors, hosting and software providers, identity verification services, and other vendors who help us run the site and fulfill your booking.</li>' +
+    '<li><strong>Legal and safety:</strong> when required by law, subpoena, or to protect the rights, property, or safety of guests, our team, or the public.</li>' +
+    '<li><strong>Business transfers:</strong> in connection with a merger, acquisition, or sale of all or part of our business.</li></ul><p>We do not sell your personal information.</p>' +
+    '<h2>4. Cookies and Tracking</h2><p>We use cookies and similar technologies to remember preferences, measure how the site is used, and (where applicable) deliver advertising. You can control cookies through your browser settings; disabling some cookies may affect site functionality.</p>' +
+    '<h2>5. Data Retention</h2><p>We retain personal information for as long as needed to provide our services, comply with legal and tax obligations, resolve disputes, and enforce our agreements. Retention periods vary by data type and applicable law.</p>' +
+    '<h2>6. Your Privacy Rights</h2><p>Depending on where you live, you may have rights to access, correct, delete, or receive a copy of the personal information we hold about you, to opt out of certain sharing or targeted advertising, and to withdraw consent. To exercise these rights, contact us using the details in section 9. We will not discriminate against you for exercising any right under applicable privacy law.</p>' +
+    '<h2>7. Children\'s Privacy</h2><p>This site is not directed to children under 13, and we do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us so we can delete it.</p>' +
+    '<h2>8. Security</h2><p>We use reasonable administrative, technical, and physical safeguards designed to protect personal information. No system is perfectly secure, however, and we cannot guarantee the security of any information you transmit to us.</p>' +
+    '<h2>9. Contact Us</h2><p>For questions or requests about this Privacy Policy or our data practices:</p>' + contactBlock(site) +
+    '<h2>10. Changes to This Privacy Policy</h2><p>We may update this Privacy Policy from time to time. Material changes will be communicated through the site or by email where appropriate.</p>');
 }
 
 export function renderThanks(site) {
   return layout(site, 'Reservation received | ' + site.name,
-    '<div class="wrap center"><h1>Your reservation is in</h1><p>Check your email for your confirmation. We will send check-in details and your door code before you arrive.</p><a class="btn" href="/">Back to all stays</a></div>');
+    '<div class="wrap centerpage"><h1>Your reservation is in</h1><p>Check your email for your confirmation. We will send check-in details and your door code before you arrive.</p><a class="chip" href="/">Back to all stays</a></div>');
 }
 
 export function renderNotFound(site) {
   return layout(site, 'Page not found | ' + site.name,
-    '<div class="wrap center"><h1>We could not find that page</h1><p>The home may no longer be listed. Browse our current stays instead.</p><a class="btn" href="/">See all stays</a></div>');
+    '<div class="wrap centerpage"><h1>We could not find that page</h1><p>The home may no longer be listed. Browse our current stays instead.</p><a class="chip" href="/s">See all stays</a></div>');
 }
 
 export function renderError(site, title, message) {
   return layout(site, title + ' | ' + site.name,
-    '<div class="wrap center"><h1>' + esc(title) + '</h1><p>' + esc(message) + '</p><a class="btn" href="/">Try again</a></div>');
+    '<div class="wrap centerpage"><h1>' + esc(title) + '</h1><p>' + esc(message) + '</p><a class="chip" href="/">Try again</a></div>');
 }
-
-// Browser script for the property page: calendar, live quote, and checkout hand-off.
-// Written without template literals so it can sit inside this module safely.
-const CLIENT_JS = String.raw`
-(function () {
-  var boot = JSON.parse(document.getElementById('boot').textContent);
-  var byId = function (id) { return document.getElementById(id); };
-  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-  var iso = function (d) { return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); };
-  var parse = function (s) { var a = s.split('-'); return new Date(Date.UTC(+a[0], +a[1] - 1, +a[2])); };
-  var addDays = function (s, n) { var d = parse(s); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
-  var nights = function (a, b) { return Math.round((parse(b) - parse(a)) / 86400000); };
-  var money = function (n) { return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
-  var pretty = function (s) { return parse(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); };
-  var esc = function (s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
-
-  var state = { arrival: boot.arrival, departure: boot.departure, adults: boot.guests || 2, days: {}, loaded: false, offset: 0, quote: null, quoteSeq: 0 };
-  var todayStr = iso(new Date());
-
-  // Photos dialog
-  var dlg = byId('photos');
-  if (dlg && byId('show-photos')) {
-    byId('show-photos').addEventListener('click', function () { dlg.showModal(); });
-    byId('close-photos').addEventListener('click', function () { dlg.close(); });
-  }
-
-  // Description toggle
-  var desc = byId('desc'), more = byId('desc-more');
-  if (desc && more) {
-    if (desc.scrollHeight <= desc.clientHeight + 4) { desc.classList.remove('clamp'); more.style.display = 'none'; }
-    more.addEventListener('click', function () {
-      var open = desc.classList.toggle('clamp');
-      more.textContent = open ? 'Show more' : 'Show less';
-    });
-  }
-
-  Array.prototype.forEach.call(document.querySelectorAll('[data-goto-cal]'), function (b) {
-    b.addEventListener('click', function () { byId('dates').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-  });
-
-  // ---- availability rules ----
-  function day(s) { return state.days[s]; }
-  function canArrive(s) { var d = day(s); return !!d && d.open && !d.noArrive && s >= todayStr; }
-  function stayProblem(a, b) {
-    if (b <= a) return 'Checkout must be after check-in.';
-    for (var s = a; s < b; s = addDays(s, 1)) { var d = day(s); if (!d || !d.open) return 'Some nights in that range are booked.'; }
-    var dep = day(b);
-    if (dep && dep.noDepart) return 'Checkout is not allowed on ' + pretty(b) + '.';
-    var min = day(a).minNights || 0;
-    if (min && nights(a, b) < min) return 'Minimum stay from ' + pretty(a) + ' is ' + min + ' nights.';
-    return '';
-  }
-
-  // ---- calendar ----
-  function baseMonth() {
-    var start = state.arrival ? parse(state.arrival) : new Date();
-    return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + state.offset, 1));
-  }
-  function renderMonth(first) {
-    var y = first.getUTCFullYear(), m = first.getUTCMonth();
-    var name = first.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-    var lead = first.getUTCDay();
-    var count = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-    var html = '<div class="month"><div class="month-name">' + name + '</div><div class="dow" aria-hidden="true"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div><div class="days">';
-    for (var i = 0; i < lead; i++) html += '<span class="day blank"></span>';
-    var choosingOut = state.arrival && !state.departure;
-    for (var d = 1; d <= count; d++) {
-      var s = y + '-' + pad(m + 1) + '-' + pad(d);
-      var ok = choosingOut ? (s > state.arrival ? !stayProblem(state.arrival, s) : canArrive(s)) : canArrive(s);
-      if (choosingOut && s === state.arrival) ok = true;
-      var cls = 'day';
-      if (state.arrival && (s === state.arrival || s === state.departure)) cls += ' edge';
-      else if (state.arrival && state.departure && s > state.arrival && s < state.departure) cls += ' in';
-      var label = pretty(s) + (ok ? '' : ', not available');
-      html += '<button type="button" class="' + cls + '" data-date="' + s + '"' + (ok ? '' : ' disabled') + ' aria-label="' + label + '">' + d + '</button>';
-    }
-    return html + '</div></div>';
-  }
-  function renderCalendar() {
-    if (!state.loaded) return;
-    var first = baseMonth();
-    var second = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 1));
-    byId('months').innerHTML = renderMonth(first) + renderMonth(second);
-    var now = new Date();
-    byId('cal-prev').disabled = first <= new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    var title = byId('cal-title'), sub = byId('cal-sub');
-    if (state.arrival && state.departure) {
-      var n = nights(state.arrival, state.departure);
-      title.textContent = n + (n === 1 ? ' night' : ' nights');
-      sub.textContent = pretty(state.arrival) + ' to ' + pretty(state.departure);
-    } else if (state.arrival) {
-      title.textContent = 'Select checkout date';
-      var min = (day(state.arrival) || {}).minNights;
-      sub.textContent = 'Check-in ' + pretty(state.arrival) + (min ? '. Minimum stay ' + min + ' nights.' : '');
-    } else {
-      title.textContent = 'Select your dates';
-      sub.textContent = 'Choose a check-in date.';
-    }
-  }
-  byId('months').addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-date]');
-    if (!b || b.disabled) return;
-    var s = b.getAttribute('data-date');
-    if (!state.arrival || state.departure) { state.arrival = s; state.departure = null; }
-    else if (s <= state.arrival) { if (canArrive(s)) state.arrival = s; }
-    else if (!stayProblem(state.arrival, s)) state.departure = s;
-    state.offset = 0;
-    afterDatesChange();
-  });
-  byId('cal-prev').addEventListener('click', function () { state.offset--; renderCalendar(); });
-  byId('cal-next').addEventListener('click', function () { state.offset++; renderCalendar(); });
-  byId('clear-dates').addEventListener('click', function () { state.arrival = null; state.departure = null; state.offset = 0; afterDatesChange(); });
-
-  // ---- guests ----
-  function renderGuests() {
-    byId('f-guests').textContent = state.adults + (state.adults === 1 ? ' guest' : ' guests');
-    byId('g-minus').disabled = state.adults <= 1;
-    byId('g-plus').disabled = state.adults >= boot.maxGuests;
-  }
-  byId('g-minus').addEventListener('click', function () { if (state.adults > 1) { state.adults--; renderGuests(); syncUrl(); fetchQuote(); } });
-  byId('g-plus').addEventListener('click', function () { if (state.adults < boot.maxGuests) { state.adults++; renderGuests(); syncUrl(); fetchQuote(); } });
-
-  // ---- quote ----
-  function syncUrl() {
-    var u = new URL(location.href);
-    if (state.arrival && state.departure) { u.searchParams.set('checkin', state.arrival); u.searchParams.set('checkout', state.departure); }
-    else { u.searchParams.delete('checkin'); u.searchParams.delete('checkout'); }
-    u.searchParams.set('guests', String(state.adults));
-    history.replaceState(null, '', u.toString());
-  }
-  function setReserve(enabled) {
-    byId('reserve').disabled = !enabled;
-    if (!enabled) byId('guest-form').classList.remove('open');
-  }
-  function fetchQuote() {
-    var box = byId('quote');
-    state.quote = null;
-    setReserve(false);
-    if (!(state.arrival && state.departure)) { box.innerHTML = ''; return; }
-    var seq = ++state.quoteSeq;
-    box.innerHTML = '<p class="small">Getting your price</p>';
-    var qs = '?id=' + boot.id + '&arrival=' + state.arrival + '&departure=' + state.departure + '&adults=' + state.adults + '&children=0';
-    fetch('/api/quote' + qs).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        if (seq !== state.quoteSeq) return;
-        if (!res.ok) { box.innerHTML = '<p class="err">' + esc(res.j.error || 'Those dates are not available.') + '</p>'; return; }
-        state.quote = res.j;
-        var n = nights(state.arrival, state.departure);
-        var rent = 0;
-        res.j.charges.forEach(function (c) { if (c.type === 'rent') rent += c.amount; });
-        if (rent) byId('price').innerHTML = '<strong>' + money(rent / n).replace('.00', '') + '</strong><span>avg. night</span>';
-        box.innerHTML = '<div class="lines">' + res.j.charges.map(function (c) {
-          return '<div class="line"><span>' + esc(c.description) + '</span><span>' + money(c.amount) + '</span></div>';
-        }).join('') + '</div><div class="total" style="margin-top:12px"><span>Total</span><span>' + money(res.j.total) + '</span></div>';
-        setReserve(true);
-      })
-      .catch(function () { if (seq === state.quoteSeq) box.innerHTML = '<p class="err">We could not load pricing. Check your connection and try again.</p>'; });
-  }
-
-  function afterDatesChange() {
-    byId('f-in').textContent = state.arrival ? pretty(state.arrival) : 'Add date';
-    byId('f-out').textContent = state.departure ? pretty(state.departure) : 'Add date';
-    renderCalendar();
-    syncUrl();
-    fetchQuote();
-  }
-
-  // ---- reserve and checkout ----
-  byId('reserve').addEventListener('click', function () {
-    var f = byId('guest-form');
-    f.classList.add('open');
-    byId('reserve').style.display = 'none';
-    f.querySelector('input').focus();
-  });
-  byId('guest-form').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var f = e.target, err = byId('book-err'), btn = byId('checkout');
-    var data = { property_id: boot.id, arrival: state.arrival, departure: state.departure, adults: state.adults, children: 0 };
-    ['first_name', 'last_name', 'email', 'phone', 'company'].forEach(function (k) { data[k] = f.elements[k].value.trim(); });
-    if (!data.first_name || !data.last_name) { err.textContent = 'Enter your first and last name.'; return; }
-    if (!f.elements.email.checkValidity() || !data.email) { err.textContent = 'Enter a valid email address.'; return; }
-    err.textContent = '';
-    btn.disabled = true; btn.textContent = 'Opening secure checkout';
-    fetch('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        if (res.ok && res.j.paymentUrl) { location.href = res.j.paymentUrl; return; }
-        err.textContent = res.j.error || 'We could not open checkout. Please try again.';
-        btn.disabled = false; btn.textContent = 'Continue to secure checkout';
-      })
-      .catch(function () {
-        err.textContent = 'We could not reach checkout. Check your connection and try again.';
-        btn.disabled = false; btn.textContent = 'Continue to secure checkout';
-      });
-  });
-
-  // ---- load availability ----
-  renderGuests();
-  byId('f-in').textContent = state.arrival ? pretty(state.arrival) : 'Add date';
-  byId('f-out').textContent = state.departure ? pretty(state.departure) : 'Add date';
-  fetch('/api/calendar?id=' + boot.id).then(function (r) { return r.json(); }).then(function (j) {
-    if (j.error) { byId('months').innerHTML = '<p class="err">' + esc(j.error) + '</p>'; return; }
-    (j.days || []).forEach(function (d) { state.days[d.date] = d; });
-    state.loaded = true;
-    if (state.arrival && state.departure && (!canArrive(state.arrival) || stayProblem(state.arrival, state.departure))) {
-      byId('cal-sub').textContent = 'Those dates are not available. Pick new dates below.';
-      state.arrival = null; state.departure = null;
-      afterDatesChange();
-      byId('cal-sub').textContent = 'Those dates are not available. Pick new dates below.';
-      return;
-    }
-    renderCalendar();
-    if (state.arrival && state.departure) fetchQuote();
-  }).catch(function () {
-    byId('months').innerHTML = '<p class="err">We could not load availability. Refresh the page to try again.</p>';
-  });
-})();
-`;

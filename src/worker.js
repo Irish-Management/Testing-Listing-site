@@ -2,7 +2,10 @@
 // Runs as a Cloudflare Worker. All OwnerRez calls happen here on the server,
 // so the API token is never sent to guests' browsers.
 
-import { renderHome, renderProperty, renderThanks, renderNotFound, renderError } from './pages.js';
+import {
+  renderHome, renderSearch, renderProperty, renderThanks, renderNotFound, renderError,
+  renderReviews, renderSitemap, renderTerms, renderPrivacy,
+} from './pages.js';
 
 const API = 'https://api.ownerrez.com';
 const UA = 'IrishManagementDirectBooking/1.0';
@@ -75,8 +78,13 @@ async function cached(ctx, key, ttlSeconds, fn) {
 
 // ---------- Data ----------
 
+function stateAbbr(s) {
+  const map = { indiana: 'IN', michigan: 'MI', illinois: 'IL', ohio: 'OH' };
+  return map[String(s || '').toLowerCase()] || s || '';
+}
+
 function publicProperty(p) {
-  // Only fields safe to show the public. Never pass owner, key, or address line details.
+  // Only fields safe to show the public. Never pass owner, key, or street address.
   return {
     id: p.id,
     title: p.external_name || p.name,
@@ -85,129 +93,217 @@ function publicProperty(p) {
     maxGuests: p.max_guests || 0,
     maxPets: p.max_pets || 0,
     city: (p.address && p.address.city) || '',
-    state: (p.address && p.address.state) || '',
+    state: stateAbbr(p.address && p.address.state),
+    zip: (p.address && p.address.postal_code) || '',
     photo: p.thumbnail_url_large || p.thumbnail_url_medium || p.thumbnail_url || '',
     checkIn: p.check_in || '',
     checkOut: p.check_out || '',
-    livingArea: p.living_area || 0,
-    livingAreaType: p.living_area_type || '',
-    // Rounded so the map shows the neighborhood, not the exact house.
-    lat: typeof p.latitude === 'number' ? Math.round(p.latitude * 100) / 100 : null,
-    lng: typeof p.longitude === 'number' ? Math.round(p.longitude * 100) / 100 : null,
+    // Rounded to about 100 meters so the map shows the block, not the exact house.
+    lat: typeof p.latitude === 'number' ? Math.round(p.latitude * 1000) / 1000 : null,
+    lng: typeof p.longitude === 'number' ? Math.round(p.longitude * 1000) / 1000 : null,
     order: p.external_display_order != null ? p.external_display_order : (p.display_order != null ? p.display_order : 9999),
   };
 }
 
-async function getProperties(env, ctx) {
-  return cached(ctx, 'properties:v1', 900, async () => {
-    const all = [];
-    let offset = 0;
-    for (let i = 0; i < 10; i++) {
-      const page = await or(env, '/v2/properties', { query: { active: true, include_tags: true, limit: 100, offset } });
-      const items = (page && page.items) || [];
-      all.push(...items);
-      if (items.length < 100) break;
-      offset += 100;
-    }
-    const excludes = (env.EXCLUDE_NAME_CONTAINS || 'Home Watch')
-      .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-    const requiredTag = (env.REQUIRE_TAG || '').trim().toLowerCase();
+async function fetchProperties(env) {
+  const all = [];
+  let offset = 0;
+  for (let i = 0; i < 10; i++) {
+    const page = await or(env, '/v2/properties', { query: { active: true, include_tags: true, limit: 100, offset } });
+    const items = (page && page.items) || [];
+    all.push(...items);
+    if (items.length < 100) break;
+    offset += 100;
+  }
+  const excludes = (env.EXCLUDE_NAME_CONTAINS || 'Home Watch')
+    .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const requiredTag = (env.REQUIRE_TAG || '').trim().toLowerCase();
 
-    return all
-      .filter((p) => p.active && !p.is_snoozed && (p.bedrooms || 0) > 0)
-      .filter((p) => {
-        const names = ((p.name || '') + ' ' + (p.external_name || '')).toLowerCase();
-        return !excludes.some((x) => names.includes(x));
-      })
-      .filter((p) => !requiredTag || (p.tags || []).some((t) => String(t).toLowerCase() === requiredTag))
-      .map(publicProperty)
-      .sort((a, b) => (a.order - b.order) || a.title.localeCompare(b.title));
+  return all
+    .filter((p) => p.active && !p.is_snoozed && (p.bedrooms || 0) > 0)
+    .filter((p) => {
+      const names = ((p.name || '') + ' ' + (p.external_name || '')).toLowerCase();
+      return !excludes.some((x) => names.includes(x));
+    })
+    .filter((p) => !requiredTag || (p.tags || []).some((t) => String(t).toLowerCase() === requiredTag))
+    .map(publicProperty)
+    .sort((a, b) => (a.order - b.order) || a.title.localeCompare(b.title));
+}
+
+function getProperties(env, ctx) {
+  return cached(ctx, 'properties:v2', 900, () => fetchProperties(env));
+}
+
+// OwnerRez amenity text contains HTML entities such as "&ndash;". Decode them to plain
+// text here; pages.js escapes everything again on output.
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '–', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', hellip: '…' };
+function decodeEntities(s) {
+  return String(s || '').replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
+    if (e[0] === '#') {
+      const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : m;
+    }
+    const v = ENTITIES[e.toLowerCase()];
+    return v === undefined ? m : v;
   });
 }
 
-async function getListing(env, ctx, id) {
-  return cached(ctx, 'listing:v2:' + id, 1800, async () => {
-    try {
-      const l = await or(env, '/v2/listings/' + id, { query: { descriptionFormat: 'text' } });
-      const d = l.descriptions || {};
-      // Whitelist only. The listing response also contains wifi passwords, house manual,
-      // and check-in instructions, which must never reach a public page.
-      return {
-        available: true,
-        headline: d.headline || '',
-        summary: d.short_description || '',
-        description: d.description || '',
-        photos: (l.photos || [])
-          .filter((p) => p.large_url || p.original_url)
-          .map((p) => ({ url: p.large_url || p.original_url, caption: p.caption || '' })),
-        // "text" is the amenity name; "title" is an optional host note
-        // (for example "Exterior Ring camera at front door"), so it never replaces the name.
-        amenities: (l.amenity_categories || [])
-          .map((c) => ({ caption: decodeEntities(c.caption || c.type || ''), items: (c.amenities || []).map((a) => decodeEntities(a.text || a.title)).filter(Boolean) }))
-          .filter((c) => c.items.length),
-        callouts: (l.amenity_call_outs || []).map((a) => decodeEntities(a.text || a.title)).filter(Boolean),
-        rooms: (l.rooms || [])
-          .filter((r) => r.type === 'bedroom' || r.type === 'studio')
-          .map((r) => ({ name: r.name || 'Bedroom', description: r.description || '', beds: r.total_beds || 0 })),
-        reviewAverage: l.review_average || 0,
-        reviewCount: l.review_count || 0,
-        sleepsMax: l.sleeps_max || l.occupancy_max || 0,
-        cancellationPolicy: decodeEntities(l.cancellation_policy),
-        nightlyMin: l.nightly_rate_min || 0,
-      };
-    } catch (e) {
-      // 402 means the account does not have listing access for this token.
-      // The page still works using basic property info and the thumbnail.
-      if (e instanceof OrError && [402, 403, 404].includes(e.status)) {
-        return { available: false, reason: e.code || String(e.status) };
-      }
-      throw e;
+// Amenity categories that describe the listing rather than things in the home.
+const NOT_AMENITIES = new Set(['PropertyType', 'Accommodation', 'HouseRules', 'Bathrooms', 'Bedrooms',
+  'LocationTypeFeatures', 'ThemeFeatures', 'AttractionFeatures', 'LeisureFeatures', 'LocalFeatures',
+  'ListingExpectationFeatures', 'ActivitiesFeatures', 'SportsFeatures']);
+
+function shapeListing(l) {
+  const d = l.descriptions || {};
+  const cats = (l.amenity_categories || []).map((c) => ({
+    type: c.type || '',
+    caption: decodeEntities(c.caption || c.type || ''),
+    // "text" is the amenity name; "title" is an optional host note
+    // (for example "Exterior Ring camera at front door"), so it never replaces the name.
+    items: (c.amenities || []).map((a) => ({ name: decodeEntities(a.text || a.title), note: a.text && a.title ? decodeEntities(a.title) : '' })).filter((a) => a.name),
+  })).filter((c) => c.items.length);
+  const byType = (t) => (cats.find((c) => c.type === t) || { items: [] }).items;
+  // Whitelist only. The listing response also contains wifi passwords, house manual,
+  // and check-in instructions, which must never reach a public page.
+  return {
+    available: true,
+    headline: d.headline || '',
+    summary: d.short_description || '',
+    description: d.description || '',
+    photos: (l.photos || [])
+      .filter((p) => p.large_url || p.original_url)
+      .map((p) => ({ url: p.large_url || p.original_url, caption: p.caption || '' })),
+    amenities: cats.filter((c) => !NOT_AMENITIES.has(c.type)).map((c) => ({ caption: c.caption, items: c.items.map((i) => i.name) })),
+    callouts: (l.amenity_call_outs || []).map((a) => decodeEntities(a.text || a.title)).filter(Boolean),
+    houseRules: byType('HouseRules').map((i) => i.name),
+    expectations: byType('ListingExpectationFeatures').map((i) => i.name + (i.note ? ': ' + i.note : '')),
+    beds: (l.rooms || []).reduce((s, r) => s + (r.total_beds || 0), 0),
+    reviewAverage: l.review_average || 0,
+    reviewCount: l.review_count || 0,
+    sleepsMax: l.sleeps_max || l.occupancy_max || 0,
+    cancellationPolicy: decodeEntities(l.cancellation_policy),
+  };
+}
+
+async function fetchListing(env, id) {
+  try {
+    return shapeListing(await or(env, '/v2/listings/' + id, { query: { descriptionFormat: 'text' } }));
+  } catch (e) {
+    // 402 means the account does not have listing access for this token.
+    // The page still works using basic property info and the thumbnail.
+    if (e instanceof OrError && [402, 403, 404].includes(e.status)) {
+      return { available: false, reason: e.code || String(e.status) };
     }
+    throw e;
+  }
+}
+
+function getListing(env, ctx, id) {
+  return cached(ctx, 'listing:v3:' + id, 1800, () => fetchListing(env, id));
+}
+
+function firstName(r) {
+  const n = String(r.display_name || (r.guest && r.guest.first_name) || '').trim();
+  return n ? n.split(/\s+/)[0] : 'Guest';
+}
+
+function shapeReview(r) {
+  const d = r.date ? new Date(r.date) : null;
+  const month = r.month_of_stay && r.year_of_stay
+    ? new Date(Date.UTC(r.year_of_stay, r.month_of_stay - 1, 1))
+    : d;
+  return {
+    name: firstName(r),
+    stars: Number(r.stars) || 0,
+    text: decodeEntities(r.body || '').trim(),
+    when: month ? month.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : '',
+    propertyId: r.property_id,
+  };
+}
+
+async function fetchReviews(env, query) {
+  const r = await or(env, '/v2/reviews', { query: Object.assign({ include_guest: true, limit: 50 }, query) });
+  return ((r && r.items) || [])
+    .filter((x) => x.visible !== false && x.reviewer !== 'host' && String(x.body || '').trim())
+    .map(shapeReview);
+}
+
+function getPropertyReviews(env, ctx, id) {
+  return cached(ctx, 'reviews:v1:' + id, 1800, async () => {
+    try { return await fetchReviews(env, { property_id: id, limit: 30 }); } catch (e) { return []; }
   });
 }
 
 async function getCalendar(env, ctx, id, from, to) {
-  return cached(ctx, 'cal:v1:' + id + ':' + from + ':' + to, 300, async () => {
+  return cached(ctx, 'cal:v2:' + id + ':' + from + ':' + to, 300, async () => {
     const c = await or(env, '/v2/calendar/' + id, { query: { from, to } });
+    return { currency: (c && c.currency_code) || 'USD', days: shapeDays((c && c.days) || []) };
+  });
+}
+
+function shapeDays(days) {
+  return days.map((d) => {
+    const r = d.rules || {};
     return {
-      currency: (c && c.currency_code) || 'USD',
-      days: ((c && c.days) || []).map((d) => {
-        const r = d.rules || {};
-        return {
-          date: d.date,
-          open: d.status === 'available' && !r.is_stay_disallowed,
-          noArrive: !!r.is_arrival_disallowed,
-          noDepart: !!r.is_departure_disallowed,
-          minNights: r.min_nights || 0,
-          rate: d.rate && d.rate.amount != null ? d.rate.amount : null,
-        };
-      }),
+      date: d.date,
+      open: d.status === 'available' && !r.is_stay_disallowed,
+      noArrive: !!r.is_arrival_disallowed,
+      noDepart: !!r.is_departure_disallowed,
+      minNights: r.min_nights || 0,
+      maxNights: r.max_nights || 0,
+      rate: d.rate && d.rate.amount != null ? d.rate.amount : null,
     };
   });
 }
 
-const CHARGE_LABELS = { rent: 'Rent', surcharge: 'Fees', tax: 'Taxes', tax_other: 'Taxes', surcharge_other: 'Fees' };
+// Earliest stays that satisfy availability and minimum-night rules, starting at `from`.
+function findStays(days, from, count) {
+  const byDate = {};
+  for (const d of days) byDate[d.date] = d;
+  const out = [];
+  for (const d of days) {
+    if (d.date < from || !d.open || d.noArrive) continue;
+    const n = Math.max(1, d.minNights || 1);
+    let ok = true;
+    for (let i = 0; i < n; i++) {
+      const x = byDate[addDays(d.date, i)];
+      if (!x || !x.open) { ok = false; break; }
+    }
+    const dep = byDate[addDays(d.date, n)];
+    if (!ok || (dep && dep.noDepart)) continue;
+    out.push({ arrival: d.date, departure: addDays(d.date, n), nights: n });
+    if (out.length >= count) break;
+  }
+  return out;
+}
 
-async function getQuote(env, ctx, q) {
-  const key = ['quote:v1', q.id, q.arrival, q.departure, q.adults, q.children].join(':');
-  return cached(ctx, key, 300, async () => {
-    // test: true prices the stay without saving a quote in OwnerRez.
-    const r = await or(env, '/v2/quotes', {
-      method: 'POST',
-      body: {
-        property_id: q.id, arrival: q.arrival, departure: q.departure,
-        adults: q.adults, children: q.children,
-        test: true, generate_charges: true, validate_rules: true,
-      },
-    });
-    const charges = ((r && r.charges) || [])
-      .slice()
-      .sort((a, b) => (a.position || 0) - (b.position || 0))
-      .map((c) => ({ description: c.description || CHARGE_LABELS[c.type] || 'Charge', amount: Number(c.amount) || 0, type: c.type }))
-      .filter((c) => c.amount !== 0);
-    const total = Math.round(charges.reduce((s, c) => s + c.amount, 0) * 100) / 100;
-    return { charges, total };
+const CHARGE_LABELS = { rent: 'Rent', surcharge: 'Fees', tax: 'Taxes', tax_other: 'Taxes', surcharge_other: 'Fees' };
+const isTax = (t) => t === 'tax' || t === 'tax_other';
+
+async function fetchQuote(env, q) {
+  // test: true prices the stay without saving a quote in OwnerRez.
+  const r = await or(env, '/v2/quotes', {
+    method: 'POST',
+    body: {
+      property_id: q.id, arrival: q.arrival, departure: q.departure,
+      adults: q.adults, children: q.children || 0, pets: q.pets || 0,
+      test: true, generate_charges: true, validate_rules: true,
+    },
   });
+  const charges = ((r && r.charges) || [])
+    .slice()
+    .sort((a, b) => (a.position || 0) - (b.position || 0))
+    .map((c) => ({ description: c.description || CHARGE_LABELS[c.type] || 'Charge', amount: Number(c.amount) || 0, type: c.type }))
+    .filter((c) => c.amount !== 0);
+  const round = (n) => Math.round(n * 100) / 100;
+  const total = round(charges.reduce((s, c) => s + c.amount, 0));
+  const beforeTaxes = round(charges.filter((c) => !isTax(c.type)).reduce((s, c) => s + c.amount, 0));
+  return { charges, total, beforeTaxes };
+}
+
+function getQuote(env, ctx, q) {
+  const key = ['quote:v2', q.id, q.arrival, q.departure, q.adults, q.children, q.pets].join(':');
+  return cached(ctx, key, 300, () => fetchQuote(env, q));
 }
 
 async function searchAvailable(env, ctx, arrival, departure) {
@@ -227,29 +323,115 @@ async function searchAvailable(env, ctx, arrival, departure) {
   });
 }
 
+// ---------- Snapshot ----------
+// Card photos, ratings, and "next available stay" prices for every home come from a
+// snapshot in Workers KV. A cron trigger refreshes a batch of homes every 10 minutes,
+// which keeps each run under Cloudflare's per-request subrequest limit and spreads the
+// OwnerRez calls out over time.
+
+const SNAP_KEY = 'snapshot:v1';
+const BATCH = 12;
+let snapMemo = null;
+
+async function readSnapshot(env) {
+  if (!env.SNAP) return null;
+  if (snapMemo && snapMemo.exp > Date.now()) return snapMemo.value;
+  const value = await env.SNAP.get(SNAP_KEY, 'json').catch(() => null);
+  snapMemo = { exp: Date.now() + 60000, value };
+  return value;
+}
+
+async function pool(items, size, fn) {
+  const out = new Array(items.length);
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, async () => {
+    while (i < items.length) { const k = i++; out[k] = await fn(items[k], k); }
+  }));
+  return out;
+}
+
+async function refreshSnapshot(env) {
+  if (!env.SNAP) throw new Error('SNAP KV binding missing');
+  const props = await fetchProperties(env);
+  const snap = (await env.SNAP.get(SNAP_KEY, 'json').catch(() => null)) || { props: {}, cursor: 0, reviews: [] };
+  const ids = props.map((p) => p.id);
+  if (!ids.length) return snap;
+  const start = (snap.cursor || 0) % ids.length;
+  const batch = [];
+  for (let i = 0; i < Math.min(BATCH, ids.length); i++) batch.push(ids[(start + i) % ids.length]);
+
+  const from = addDays(todayISO(), leadDays(env));
+  const cal = await or(env, '/v2/calendar', {
+    query: { property_ids: batch, from: todayISO(), to: addDays(todayISO(), 89), limit: 100 },
+  }).catch(() => null);
+  const calById = {};
+  for (const it of (cal && cal.items) || []) calById[it.property_id] = shapeDays(it.days || []);
+
+  await pool(batch, 4, async (id) => {
+    const prev = snap.props[id] || {};
+    const entry = { photos: prev.photos || [], rating: prev.rating || 0, reviews: prev.reviews || 0, beds: prev.beds || 0, stay: null, at: Date.now() };
+    const l = await fetchListing(env, id).catch(() => null);
+    if (l && l.available) {
+      entry.photos = l.photos.slice(0, 5).map((p) => p.url);
+      entry.rating = l.reviewAverage;
+      entry.reviews = l.reviewCount;
+      entry.beds = l.beds;
+    }
+    const days = calById[id];
+    if (days) {
+      for (const s of findStays(days, from, 2)) {
+        try {
+          const q = await fetchQuote(env, { id, arrival: s.arrival, departure: s.departure, adults: 1 });
+          entry.stay = Object.assign({}, s, { price: Math.round(q.beforeTaxes) });
+          break;
+        } catch (e) { /* rules can reject a stay the calendar allows; try the next one */ }
+      }
+    }
+    snap.props[id] = entry;
+  });
+
+  for (const k of Object.keys(snap.props)) if (!ids.includes(Number(k))) delete snap.props[k];
+  if (start === 0 || !snap.reviews || !snap.reviews.length) {
+    snap.reviews = await fetchReviews(env, { limit: 60 }).catch(() => snap.reviews || []);
+  }
+  snap.cursor = (start + batch.length) % ids.length;
+  snap.updated = new Date().toISOString();
+  await env.SNAP.put(SNAP_KEY, JSON.stringify(snap));
+  snapMemo = null;
+  return snap;
+}
+
+function siteRating(props, snap) {
+  let count = 0, sum = 0;
+  for (const p of props) {
+    const s = snap && snap.props && snap.props[p.id];
+    if (s && s.reviews && s.rating) { count += s.reviews; sum += s.rating * s.reviews; }
+  }
+  return { count, average: count ? sum / count : 0 };
+}
+
+function withSnapshot(props, snap) {
+  return props.map((p) => {
+    const s = (snap && snap.props && snap.props[p.id]) || {};
+    return Object.assign({}, p, {
+      photos: s.photos && s.photos.length ? s.photos : (p.photo ? [p.photo] : []),
+      rating: s.rating || 0,
+      reviews: s.reviews || 0,
+      stay: s.stay || null,
+    });
+  });
+}
+
 // ---------- Helpers ----------
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// OwnerRez amenity text contains HTML entities such as "&ndash;". Decode them to plain
-// text here; pages.js escapes everything again on output.
-const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '–', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', hellip: '…' };
-function decodeEntities(s) {
-  return String(s || '').replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
-    if (e[0] === '#') {
-      const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-      return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : m;
-    }
-    const v = ENTITIES[e.toLowerCase()];
-    return v === undefined ? m : v;
-  });
-}
-
 function isDate(s) { return typeof s === 'string' && DATE_RE.test(s) && !isNaN(Date.parse(s + 'T00:00:00Z')); }
 function addDays(s, n) { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function int(v, def) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : def; }
+function leadDays(env) { return Math.max(0, int(env.MIN_LEAD_DAYS, 3)); }
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -285,11 +467,27 @@ function validStay(arrival, departure) {
 }
 
 function site(env, url) {
+  const phone = env.CONTACT_PHONE || '';
   return {
     name: env.SITE_NAME || 'Irish Management',
-    phone: env.CONTACT_PHONE || '',
+    phone,
+    sms: phone.replace(/[^\d+]/g, ''),
     email: env.CONTACT_EMAIL || '',
+    instagram: env.INSTAGRAM_URL || '',
+    facebook: env.FACEBOOK_URL || '',
     origin: (env.SITE_URL || url.origin).replace(/\/$/, ''),
+    leadDays: leadDays(env),
+  };
+}
+
+function searchParams(url) {
+  const arrival = url.searchParams.get('checkin') || '';
+  const departure = url.searchParams.get('checkout') || '';
+  return {
+    arrival, departure,
+    guests: Math.max(0, int(url.searchParams.get('guests'), 0)),
+    pets: Math.max(0, int(url.searchParams.get('pets'), 0)),
+    bedrooms: Math.max(0, int(url.searchParams.get('bedrooms'), 0)),
   };
 }
 
@@ -303,6 +501,7 @@ async function handleBook(env, ctx, request, url) {
   const id = int(b.property_id, 0);
   const adults = int(b.adults, 0);
   const children = Math.max(0, int(b.children, 0));
+  const pets = Math.max(0, int(b.pets, 0));
   const first = String(b.first_name || '').trim().slice(0, 60);
   const last = String(b.last_name || '').trim().slice(0, 60);
   const email = String(b.email || '').trim().slice(0, 120);
@@ -318,6 +517,7 @@ async function handleBook(env, ctx, request, url) {
   if (adults < 1 || (prop.maxGuests && adults + children > prop.maxGuests)) {
     return json({ error: 'This home sleeps up to ' + prop.maxGuests + ' guests.' }, 400);
   }
+  if (pets > (prop.maxPets || 0)) return json({ error: prop.maxPets ? 'This home allows up to ' + prop.maxPets + ' pets.' : 'This home does not allow pets.' }, 400);
 
   try {
     const guest = await or(env, '/v2/guests', {
@@ -335,7 +535,7 @@ async function handleBook(env, ctx, request, url) {
       method: 'POST',
       body: {
         property_id: id, guest_id: guest.id,
-        arrival: b.arrival, departure: b.departure, adults, children,
+        arrival: b.arrival, departure: b.departure, adults, children, pets,
         generate_charges: true, validate_rules: true,
         redirect_after_booking_url: site(env, url).origin + '/thank-you',
       },
@@ -352,34 +552,62 @@ async function route(request, env, ctx) {
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const s = site(env, url);
 
+  if (path === '/terms') return html(renderTerms(s));
+  if (path === '/privacy-policy' || path === '/privacy') return html(renderPrivacy(s));
+  if (path === '/thank-you') return html(renderThanks(s));
+
   if (!env.OWNERREZ_TOKEN) {
     return html(renderError(s, 'Setup needed', 'Add the OWNERREZ_TOKEN secret to finish connecting this site to OwnerRez.'), 500);
   }
 
-  // Home and search
+  // Manual snapshot refresh, for warming the cache right after a deploy.
+  if (path === '/__refresh' && request.method === 'POST') {
+    if (!env.REFRESH_KEY || request.headers.get('x-refresh-key') !== env.REFRESH_KEY) return json({ error: 'Forbidden' }, 403);
+    const snap = await refreshSnapshot(env);
+    return json({ cursor: snap.cursor, homes: Object.keys(snap.props).length, priced: Object.values(snap.props).filter((p) => p.stay).length });
+  }
+
   if (path === '/' && request.method === 'GET') {
-    const arrival = url.searchParams.get('checkin') || '';
-    const departure = url.searchParams.get('checkout') || '';
-    const guests = Math.max(0, int(url.searchParams.get('guests'), 0));
-    let props = await getProperties(env, ctx);
-    let searched = false;
+    const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
+    const homes = withSnapshot(props, snap);
+    const recent = ((snap && snap.reviews) || []).filter((r) => r.stars >= 4 && r.text.length > 10).slice(0, 4);
+    return html(renderHome(s, { props: homes.slice(0, 10), total: homes.length, rating: siteRating(props, snap), reviews: recent }));
+  }
+
+  if (path === '/s' && request.method === 'GET') {
+    const q = searchParams(url);
+    const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
+    let homes = withSnapshot(props, snap);
     let notice = '';
-    if (arrival || departure) {
-      if (validStay(arrival, departure)) {
-        searched = true;
+    q.searched = false;
+    if (q.arrival || q.departure) {
+      if (validStay(q.arrival, q.departure)) {
         try {
-          const open = new Set(await searchAvailable(env, ctx, arrival, departure));
-          props = props.filter((p) => open.has(p.id));
+          const open = new Set(await searchAvailable(env, ctx, q.arrival, q.departure));
+          homes = homes.filter((p) => open.has(p.id));
+          q.searched = true;
         } catch (e) {
           notice = friendlyError(e) + ' Showing all homes instead.';
-          searched = false;
         }
       } else {
         notice = 'Choose a checkout date after your check-in date.';
       }
     }
-    if (guests) props = props.filter((p) => !p.maxGuests || p.maxGuests >= guests);
-    return html(renderHome(s, { props, arrival, departure, guests, searched, notice }));
+    if (q.guests) homes = homes.filter((p) => !p.maxGuests || p.maxGuests >= q.guests);
+    if (q.pets) homes = homes.filter((p) => p.maxPets >= q.pets);
+    if (q.bedrooms) homes = homes.filter((p) => p.bedrooms >= q.bedrooms);
+    return html(renderSearch(s, { props: homes, q, notice }));
+  }
+
+  if (path === '/reviews' && request.method === 'GET') {
+    const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
+    const names = Object.fromEntries(props.map((p) => [p.id, p.title]));
+    const list = ((snap && snap.reviews) || []).filter((r) => names[r.propertyId]).map((r) => Object.assign({}, r, { property: names[r.propertyId] }));
+    return html(renderReviews(s, { rating: siteRating(props, snap), reviews: list }));
+  }
+
+  if (path === '/sitemap' && request.method === 'GET') {
+    return html(renderSitemap(s, { props: await getProperties(env, ctx) }));
   }
 
   // Property page: /property/:id or /property/:id/any-slug
@@ -389,12 +617,13 @@ async function route(request, env, ctx) {
     const props = await getProperties(env, ctx);
     const prop = props.find((p) => p.id === id);
     if (!prop) return html(renderNotFound(s), 404);
-    const listing = await getListing(env, ctx, id);
+    const [listing, reviews] = await Promise.all([getListing(env, ctx, id), getPropertyReviews(env, ctx, id)]);
     const arrival = url.searchParams.get('checkin');
     const departure = url.searchParams.get('checkout');
     const stay = validStay(arrival, departure) ? { arrival, departure } : { arrival: null, departure: null };
-    const guests = Math.min(prop.maxGuests || 16, Math.max(1, int(url.searchParams.get('guests'), 2)));
-    return html(renderProperty(s, { prop, listing, stay, guests }));
+    const guests = Math.min(prop.maxGuests || 16, Math.max(1, int(url.searchParams.get('guests'), 1)));
+    const pets = Math.min(prop.maxPets || 0, Math.max(0, int(url.searchParams.get('pets'), 0)));
+    return html(renderProperty(s, { prop, listing, reviews, stay, guests, pets }));
   }
 
   if (path === '/api/calendar' && request.method === 'GET') {
@@ -416,6 +645,7 @@ async function route(request, env, ctx) {
     const departure = url.searchParams.get('departure');
     const adults = int(url.searchParams.get('adults'), 1);
     const children = Math.max(0, int(url.searchParams.get('children'), 0));
+    const pets = Math.max(0, int(url.searchParams.get('pets'), 0));
     if (!validStay(arrival, departure)) return json({ error: 'Choose valid dates.' }, 400);
     const props = await getProperties(env, ctx);
     const prop = props.find((p) => p.id === id);
@@ -423,8 +653,9 @@ async function route(request, env, ctx) {
     if (adults < 1 || (prop.maxGuests && adults + children > prop.maxGuests)) {
       return json({ error: 'This home sleeps up to ' + prop.maxGuests + ' guests.' }, 400);
     }
+    if (pets > (prop.maxPets || 0)) return json({ error: prop.maxPets ? 'This home allows up to ' + prop.maxPets + ' pets.' : 'This home does not allow pets.' }, 400);
     try {
-      return json(await getQuote(env, ctx, { id, arrival, departure, adults, children }));
+      return json(await getQuote(env, ctx, { id, arrival, departure, adults, children, pets }));
     } catch (e) {
       return json({ error: friendlyError(e) }, e instanceof OrError && e.status === 400 ? 400 : 502);
     }
@@ -433,8 +664,6 @@ async function route(request, env, ctx) {
   if (path === '/api/book' && request.method === 'POST') {
     return handleBook(env, ctx, request, url);
   }
-
-  if (path === '/thank-you') return html(renderThanks(s));
 
   return html(renderNotFound(s), 404);
 }
@@ -449,5 +678,8 @@ export default {
       if (url.pathname.startsWith('/api/')) return json({ error: friendlyError(e) }, 502);
       return html(renderError(site(env, url), 'We hit a snag', friendlyError(e)), 502);
     }
+  },
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(refreshSnapshot(env).catch((e) => console.error('snapshot', e && e.stack ? e.stack : e)));
   },
 };

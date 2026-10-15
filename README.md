@@ -9,22 +9,41 @@ No booking platform fee. Your OwnerRez token stays on the server and is never se
 
 ## What's included
 
-- `src/worker.js`: the server. Talks to OwnerRez, caches responses, handles booking.
-- `src/pages.js`: page templates, styles, and the calendar and booking card script.
-- `wrangler.toml`: Cloudflare settings.
+- `src/worker.js`: the server. Talks to OwnerRez, caches responses, refreshes the card
+  snapshot on a schedule, handles booking.
+- `src/pages.js`: page templates (home, search, property, reviews, terms, privacy, sitemap).
+- `public/`: styles (`site.css`), browser scripts (`app.js`, `property.js`, `search.js`),
+  and the logo and section photos.
+- `wrangler.toml`: Cloudflare settings, the KV namespace, and the 10 minute cron.
 
-Pages: `/` (home and date search), `/property/<id>` (property page, also accepts
-`?checkin=2027-01-01&checkout=2027-01-08&guests=6`), `/thank-you`.
+Pages: `/` (home), `/s` (all homes with map; accepts `?checkin=&checkout=&guests=&pets=&bedrooms=`),
+`/property/<id>/<slug>` (also accepts `?checkin=2027-01-01&checkout=2027-01-08&guests=6`),
+`/reviews`, `/terms`, `/privacy-policy`, `/sitemap`, `/thank-you`.
+
+The design and copy match the previous Wander site at listings.irishmgmt.com.
+
+## Card snapshot
+
+Card photos, ratings, and the "next available stay" price on each card come from a snapshot
+stored in Workers KV (binding `SNAP`). The cron trigger refreshes 12 homes every 10 minutes,
+so every home is refreshed about every 80 minutes. Card prices are rent plus fees, before
+taxes, for the earliest stay that meets the minimum-night rule, starting `MIN_LEAD_DAYS` out.
+
+After a deploy you can fill the snapshot right away instead of waiting for the cron:
+set a `REFRESH_KEY` secret, then run this 8 times:
+`curl -X POST -H "x-refresh-key: YOUR_KEY" https://your-site/__refresh`
 
 ## Setup (about 20 minutes)
 
 1. **Create an OwnerRez token.** In OwnerRez go to Settings > Advanced Tools > Developer/API Settings,
    create a Personal Access Token (starts with `pt_`), copy it, and click Grant Access To Me.
 2. **Install tools.** Install Node.js, then in this folder run `npm install -g wrangler` and `wrangler login`.
-3. **Fill in `wrangler.toml`:** `OWNERREZ_EMAIL` (your OwnerRez login email), `SITE_URL`,
-   `CONTACT_PHONE`, `CONTACT_EMAIL`.
-4. **Add the token as a secret:** `wrangler secret put OWNERREZ_TOKEN` and paste the `pt_` token.
-5. **Try it locally:** `wrangler dev`, then open http://localhost:8787
+3. **Fill in `wrangler.toml`:** `OWNERREZ_EMAIL` (blank for an OAuth token), `SITE_URL`,
+   contact and social links.
+4. **Add the secrets:** `wrangler secret put OWNERREZ_TOKEN` (paste the token) and
+   `wrangler secret put REFRESH_KEY` (any random string).
+5. **Try it locally:** put `OWNERREZ_TOKEN=...` and `REFRESH_KEY=...` in `.dev.vars`
+   (git ignores it), run `npm run dev`, then open http://localhost:8787
 6. **Go live:** `wrangler deploy`. Then in the Cloudflare dashboard, add a custom domain to the
    Worker (for example `stay.irishmgmt.com`). Use a custom domain, since Cloudflare's shared cache
    only runs there.

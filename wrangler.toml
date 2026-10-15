@@ -2,17 +2,36 @@ name = "irish-mgmt-booking"
 main = "src/worker.js"
 compatibility_date = "2024-09-23"
 
+# Logo, photos, styles, and browser scripts.
+[assets]
+directory = "./public"
+
+# Card snapshot (photos, ratings, next available stay prices) refreshed by the cron below.
+[[kv_namespaces]]
+binding = "SNAP"
+id = "69b6c0a64d0548ef9cedd599f3eb34b8"
+
+[triggers]
+crons = ["*/10 * * * *"]
+
 [vars]
 SITE_NAME = "Irish Management"
-# Your OwnerRez login email. Leave blank only if you use an OAuth access token instead of a pt_ token.
+# Your OwnerRez login email. Leave blank when OWNERREZ_TOKEN is an OAuth access token.
 OWNERREZ_EMAIL = ""
-# Full public address of the site, used for the after-booking redirect. Example: https://stay.irishmgmt.com
+# Full public address of the site, used for the after-booking redirect. Leave blank to use
+# whatever address the site is served from. Example: https://stay.irishmgmt.com
 SITE_URL = ""
-CONTACT_PHONE = ""
-CONTACT_EMAIL = ""
+CONTACT_PHONE = "+1 (574) 367-2727"
+CONTACT_EMAIL = "guests@irishmgmt.com"
+INSTAGRAM_URL = "https://www.instagram.com/irishmgmt"
+FACEBOOK_URL = "https://www.facebook.com/irishmgmt"
+# Earliest check-in, in days from today. OwnerRez rejects stays that start sooner.
+MIN_LEAD_DAYS = "3"
 # Properties whose name contains any of these (comma separated) are hidden from the site.
 EXCLUDE_NAME_CONTAINS = "Home Watch"
 # Optional: only show properties with this OwnerRez tag, for example "Direct Booking".
 REQUIRE_TAG = ""
 
-# The API token is a secret. Set it with:  npx wrangler secret put OWNERREZ_TOKEN
+# Secrets, set with `npx wrangler secret put NAME`:
+#   OWNERREZ_TOKEN  OwnerRez API token
+#   REFRESH_KEY     any random string; lets you warm the snapshot with POST /__refresh
