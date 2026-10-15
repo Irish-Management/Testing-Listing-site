@@ -165,8 +165,16 @@
   var popupId = document.body.getAttribute('data-flodesk-popup');
   if (popupId) {
     var startPopup = function () { fdReady()('form', { formId: popupId }); };
-    var idle = function () { if (window.requestIdleCallback) requestIdleCallback(startPopup, { timeout: 3000 }); else setTimeout(startPopup, 1); };
-    if (document.readyState === 'complete') idle(); else window.addEventListener('load', idle, { once: true });
+    // Flodesk is about 1 MB, so load it on the visitor's first scroll, tap, or key press (or after
+    // 10 seconds) instead of during the first view.
+    var started = false, evs = ['scroll', 'pointerdown', 'keydown', 'touchstart'];
+    var kick = function () {
+      if (started) return; started = true;
+      evs.forEach(function (ev) { window.removeEventListener(ev, kick); });
+      if (window.requestIdleCallback) requestIdleCallback(startPopup, { timeout: 3000 }); else setTimeout(startPopup, 1);
+    };
+    evs.forEach(function (ev) { window.addEventListener(ev, kick, { once: true, passive: true }); });
+    setTimeout(kick, 10000);
   }
   // Footer form: load when the footer comes near view.
   var fdEl = $('[data-flodesk]');

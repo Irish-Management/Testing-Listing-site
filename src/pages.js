@@ -4,7 +4,7 @@
 import { GUIDE_INTRO, NOTRE_DAME, GUIDE_SECTIONS, GETTING_AROUND, VISIT_SOUTH_BEND } from './guide.js';
 import { POSTS } from './posts.js';
 
-const V = '53'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '54'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -165,7 +165,7 @@ function amenityIcon(name) {
 
 function stars(n, size) {
   const s = ICON.star.replace(/width="14" height="14"/, 'width="' + (size || 14) + '" height="' + (size || 14) + '"');
-  return '<span class="stars" aria-label="' + esc(n) + ' out of 5 stars">' + s.repeat(Math.max(0, Math.min(5, Math.round(n)))) + '</span>';
+  return '<span class="stars" role="img" aria-label="' + esc(n) + ' out of 5 stars">' + s.repeat(Math.max(0, Math.min(5, Math.round(n)))) + '</span>';
 }
 
 // ---------- Layout ----------
@@ -203,11 +203,17 @@ function trackingHead(site) {
   if (t.debug) ga4Config.debug_mode = true;
   // Events go to every destination of this Google tag (G-MHD2HEFT77 also forwards to a
   // second GA4 property, set up in Google's tag settings), the same as on the WordPress site.
+  // gtag() calls queue in dataLayer right away; the tag scripts themselves load once the page
+  // has finished loading, so they do not slow down the first view (Core Web Vitals).
+  const load = [];
+  if (t.ga4) load.push('s("https://www.googletagmanager.com/gtag/js?id=' + t.ga4 + '");');
+  if (t.gtm) load.push('dataLayer.push({"gtm.start":new Date().getTime(),event:"gtm.js"});s("https://www.googletagmanager.com/gtm.js?id=' + t.gtm + '");');
+  if (t.clarity) load.push('window.clarity=window.clarity||function(){(clarity.q=clarity.q||[]).push(arguments)};s("https://www.clarity.ms/tag/' + t.clarity + '");');
   return '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());' +
-      (t.ga4 ? 'gtag("config",' + json(t.ga4) + ',' + json(ga4Config) + ');' : '') + '</script>' +
-    (t.ga4 ? '<script async src="https://www.googletagmanager.com/gtag/js?id=' + t.ga4 + '"></script>' : '') +
-    (t.gtm ? '<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({"gtm.start":new Date().getTime(),event:"gtm.js"});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src="https://www.googletagmanager.com/gtm.js?id="+i+dl;f.parentNode.insertBefore(j,f);})(window,document,"script","dataLayer",' + json(t.gtm) + ');</script>' : '') +
-    (t.clarity ? '<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",' + json(t.clarity) + ');</script>' : '');
+    (t.ga4 ? 'gtag("config",' + json(t.ga4) + ',' + json(ga4Config) + ');' : '') +
+    '(function(){function s(u){var e=document.createElement("script");e.async=true;e.src=u;document.head.appendChild(e);}' +
+    'function go(){' + load.join('') + '}' +
+    'if(document.readyState==="complete")setTimeout(go,0);else addEventListener("load",function(){setTimeout(go,0);},{once:true});})();</script>';
 }
 
 // Shorten text to max characters at a word boundary (search result descriptions).
@@ -238,9 +244,12 @@ function layout(site, title, body, opts = {}) {
     '<meta property="og:image" content="' + esc(image) + '">' +
     '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + esc(title) + '"><meta name="twitter:description" content="' + esc(desc) + '"><meta name="twitter:image" content="' + esc(image) + '">' +
     schemas.map((x) => '<script type="application/ld+json">' + json(x) + '</script>').join('') +
+    (opts.preloadImage ? '<link rel="preload" as="image" href="' + opts.preloadImage.href + '"' + (opts.preloadImage.srcset ? ' imagesrcset="' + opts.preloadImage.srcset + '" imagesizes="' + (opts.preloadImage.sizes || '100vw') + '"' : '') + ' fetchpriority="high">' : '') +
     '<link rel="icon" href="/img/favicon.png">' +
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap">' +
+    // Fonts load without blocking the first paint; the page shows in the fallback font until they arrive.
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap" media="print" onload="this.media=\'all\'">' +
+    '<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap"></noscript>' +
     (opts.map ? '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">' : '') +
     '<link rel="stylesheet" href="/site.css?v=' + V + '">' +
     trackingHead(site) +
@@ -342,7 +351,8 @@ function srcAttrs(url, sizes) {
   const u = String(url || '');
   if (!/^https:\/\/uc\.orez\.io\/i\/[^/?#]+-Large$/.test(u)) return ' src="' + esc(u) + '"';
   const med = u.replace(/-Large$/, '-Medium');
-  return ' src="' + esc(med) + '" srcset="' + esc(med) + ' 600w, ' + esc(u) + ' 1200w" sizes="' + sizes + '"';
+  const small = sizes === SIZES.card ? esc(u.replace(/-Large$/, '-Small')) + ' 300w, ' : '';
+  return ' src="' + esc(med) + '" srcset="' + small + esc(med) + ' 600w, ' + esc(u) + ' 1200w" sizes="' + sizes + '"';
 }
 
 // Canonical path of a home's page.
@@ -438,7 +448,7 @@ function homeFaq(site, f) {
 export function renderHome(site, d) {
   const r = d.rating;
   const body =
-    '<section class="hero"><div class="hero-media"><img src="/img/hero.jpg" srcset="/img/hero-900.jpg 900w, /img/hero.jpg 1800w" sizes="100vw" alt="Irish Management vacation home near Notre Dame" fetchpriority="high"></div>' +
+    '<section class="hero"><div class="hero-media"><img src="/img/hero.jpg" srcset="/img/hero-900.webp 900w, /img/hero-1400.webp 1400w, /img/hero.webp 1800w" sizes="100vw" alt="Irish Management vacation home near Notre Dame" fetchpriority="high"></div>' +
       '<div class="hero-copy"><h1>Notre Dame Vacation Rentals, Booked Direct</h1>' +
       '<p>From cozy condos to game-day estates, stay minutes from campus and Notre Dame Stadium. Book direct with Irish Management and skip the extra fees.</p>' +
       searchPill({}) + '</div></section>' +
@@ -473,7 +483,7 @@ export function renderHome(site, d) {
 
   const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: site.name, url: site.origin + '/' }];
   if (d.facts) schema.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: homeFaq(site, d.facts).map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
-  return layout(site, 'Notre Dame Vacation Rentals | Book Direct - ' + site.name, body, { canonical: '/', schema, bodyClass: 'home', image: '/img/hero.jpg' });
+  return layout(site, 'Notre Dame Vacation Rentals | Book Direct - ' + site.name, body, { canonical: '/', schema, bodyClass: 'home', image: '/img/hero.jpg', preloadImage: { href: '/img/hero-900.webp', srcset: '/img/hero-900.webp 900w, /img/hero-1400.webp 1400w, /img/hero.webp 1800w', sizes: '100vw' } });
 }
 
 export function renderSearch(site, d) {

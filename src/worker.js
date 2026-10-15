@@ -534,7 +534,8 @@ function html(body, status = 200) {
     status,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store',
+      // Always revalidated and never stored by shared caches, but allows instant back/forward navigation.
+      'Cache-Control': 'private, no-cache',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
     },
