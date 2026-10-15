@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '15'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '16'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -355,7 +355,7 @@ export function renderSearch(site, d) {
     '<script type="application/json" id="pins">' + json(pins) + '</script>';
   const title = (col ? col.name : 'All homes') + (q.searched ? ', open ' + rangeLabel(q.arrival, q.departure) : '');
   return layout(site, title + ' | ' + site.name, body,
-    { headerSearch: true, q, filters, map: true, cluster: true, script: 'search', bodyClass: 'searchpage', description: col ? col.description : undefined });
+    { headerSearch: true, q, filters, map: true, script: 'search', bodyClass: 'searchpage', description: col ? col.description : undefined });
 }
 
 export function renderProperty(site, d) {

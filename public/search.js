@@ -27,12 +27,9 @@
   if (mapEl && window.L && pins.length) {
     var map = L.map(mapEl, { scrollWheelZoom: true, zoomControl: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-    // Nearby homes group into a "12 homes" bubble that splits into price pins as you zoom in.
-    layer = L.markerClusterGroup ? L.markerClusterGroup({
-      maxClusterRadius: 22, disableClusteringAtZoom: 16, showCoverageOnHover: false, spiderfyOnMaxZoom: false,
-      iconCreateFunction: function (cl) { return L.divIcon({ className: '', html: '<span class="pricepin cluster">' + cl.getChildCount() + ' homes</span>', iconSize: [0, 0] }); },
-    }) : L.layerGroup();
-    layer.addTo(map);
+    // Every home stays on the map. Where price pins would overlap, the extra ones show as small
+    // dots (see declutter below), and they turn back into prices as you zoom in.
+    layer = L.layerGroup().addTo(map);
     var bounds = [];
     pins.forEach(function (p) {
       var m = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: pinHtml(p), iconSize: [0, 0] }), riseOnHover: true });
@@ -41,33 +38,72 @@
       markers[p.id] = m;
       bounds.push([p.lat, p.lng]);
     });
-    // Frame the main cluster around South Bend; a far-off listing should not zoom the map out to half the country.
+    // Frame the main group of homes: the 85% closest to the middle, so a few far-off listings
+    // (Niles, the river farms) do not zoom the map out and squeeze everything near campus together.
     var med = function (k) { var v = bounds.map(function (b) { return b[k]; }).sort(function (a, b) { return a - b; }); return v[Math.floor(v.length / 2)]; };
     var c = [med(0), med(1)];
-    var near = bounds.filter(function (b) { return Math.abs(b[0] - c[0]) < 0.6 && Math.abs(b[1] - c[1]) < 0.8; });
-    map.fitBounds(near.length ? near : bounds, { padding: [40, 40], maxZoom: 14 });
+    var near = bounds.slice().sort(function (a, b) {
+      return (Math.pow(a[0] - c[0], 2) + Math.pow(a[1] - c[1], 2)) - (Math.pow(b[0] - c[0], 2) + Math.pow(b[1] - c[1], 2));
+    }).slice(0, Math.max(1, Math.ceil(bounds.length * 0.85)));
+    map.fitBounds(near, { padding: [30, 30], maxZoom: 15 });
+    map.on('zoomend moveend', declutter);
   }
   function setPin(id, price, sub) {
-    var p = pinById[id], m = markers[id];
+    var p = pinById[id];
     if (!p) return;
     p.price = price; p.sub = sub;
-    if (m) m.setIcon(L.divIcon({ className: '', html: pinHtml(p), iconSize: [0, 0] }));
+    scheduleDeclutter();
+  }
+
+  // Show a price pin for each home unless it would overlap one already placed; those become
+  // dots. Homes earlier in the list (the current sort order) get their price shown first.
+  var shownAs = {}, declutterTimer = null;
+  function scheduleDeclutter() { clearTimeout(declutterTimer); declutterTimer = setTimeout(declutter, 60); }
+  function declutter() {
+    if (!map || !layer) return;
+    var placed = [];
+    var order = $$('.results .card').map(function (c) { return c.getAttribute('data-id'); });
+    order.forEach(function (id) {
+      var m = markers[id], p = pinById[id];
+      if (!m || !p || !layer.hasLayer(m)) return;
+      var as = 'dot';
+      if (p.price) {
+        var pt = map.latLngToContainerPoint(m.getLatLng());
+        var w = 22 + p.price.length * 8, h = 26;
+        var box = { l: pt.x - w / 2 - 2, r: pt.x + w / 2 + 2, t: pt.y - h / 2 - 2, b: pt.y + h / 2 + 2 };
+        var hit = placed.some(function (o) { return box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t; });
+        if (!hit) { placed.push(box); as = 'price'; }
+      }
+      var key = as + (p.price || '');
+      if (shownAs[id] === key) return;
+      shownAs[id] = key;
+      m.setIcon(L.divIcon({ className: '', html: as === 'price' ? pinHtml(p) : '<div class="pin-dot' + (p.price ? ' mini' : '') + '"></div>', iconSize: [0, 0] }));
+      m.setZIndexOffset(as === 'price' ? 500 : 0);
+    });
   }
   function showPin(id, on) {
     var m = markers[id];
     if (!m || !layer) return;
     var has = layer.hasLayer(m);
-    if (on && !has) layer.addLayer(m);
+    if (on && !has) { layer.addLayer(m); delete shownAs[id]; }
     if (!on && has) layer.removeLayer(m);
+    scheduleDeclutter();
   }
 
   cards.forEach(function (c) {
     var id = c.getAttribute('data-id');
     var hot = function (on) {
-      var m = markers[id];
-      if (!m || !m._icon) return;
-      var e = m._icon.firstChild; if (e) e.classList.toggle('hot', on);
-      m.setZIndexOffset(on ? 1000 : 0);
+      var m = markers[id], p = pinById[id];
+      if (!m || !p || !layer || !layer.hasLayer(m)) return;
+      if (on) {
+        // Show the price even if this home is currently a dot.
+        if (p.price) m.setIcon(L.divIcon({ className: '', html: pinHtml(p).replace('class="pricepin"', 'class="pricepin hot"'), iconSize: [0, 0] }));
+        else if (m._icon && m._icon.firstChild) m._icon.firstChild.classList.add('hot');
+        m.setZIndexOffset(1000);
+      } else {
+        delete shownAs[id];
+        declutter();
+      }
     };
     c.addEventListener('mouseenter', function () { hot(true); });
     c.addEventListener('mouseleave', function () { hot(false); });
@@ -108,6 +144,7 @@
     }[s] || function (a, b) { return +a.dataset.order - +b.dataset.order; };
     cards.slice().sort(cmp).forEach(function (c) { grid.appendChild(c); });
     paint();
+    scheduleDeclutter();
   }
 
   // Keep sort and filter choices in the URL and in the search form, so a new date search keeps them.

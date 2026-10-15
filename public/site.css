@@ -421,3 +421,4 @@ dialog.filters-modal[open]{display:flex}
 .fgrid{grid-template-columns:1fr 1fr}
 .fcols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
 @media (max-width:640px){.fgrid{grid-template-columns:1fr}.fcols{grid-template-columns:1fr 1fr}}
+.pin-dot.mini{width:12px;height:12px;cursor:pointer}
