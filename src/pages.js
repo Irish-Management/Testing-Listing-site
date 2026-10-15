@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '25'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '27'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -99,6 +99,9 @@ export const ICON = {
   dollar: svg('<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.2 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.5 0-2.6-.6-3-1.6M12 6.5v11"/>', 24, 1.6),
   phone: svg('<path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>', 24, 1.6),
   users: svg('<circle cx="9" cy="8" r="3.2"/><circle cx="16.5" cy="8" r="3.2"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5H3z"/><path d="M15 14.2c.5-.1 1-.2 1.5-.2 3.3 0 5.5 2 5.5 5h-5"/>', 24, 1.6),
+  starLine: svg('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>', 24, 1.6),
+  headset: svg('<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="13" width="3.5" height="5.5" rx="1.5"/><rect x="17.5" y="13" width="3.5" height="5.5" rx="1.5"/><path d="M19 18.5c0 1.5-1.5 2.5-4 2.5h-1.5"/><path d="m10 12 1.5 1.5L14.5 10"/>', 24, 1.6),
+  homeLg: svg('<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>', 24, 1.6),
   home: svg('<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>', 22, 1.6),
   note: svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9h8M8 13h5M14 20v-3a2 2 0 0 1 2-2h4"/>', 22, 1.6),
   badge: svg('<path d="M12 3l2.3 1.6 2.8-.2.9 2.7 2.3 1.6-.9 2.6.9 2.6-2.3 1.6-.9 2.7-2.8-.2L12 21l-2.3-1.6-2.8.2-.9-2.7-2.3-1.6.9-2.6-.9-2.6L6 6.5l.9-2.7 2.8.2z"/><path d="m9 12 2 2 4-4"/>', 22, 1.6),
@@ -309,6 +312,13 @@ function card(p, q, eager) {
     '</div></a>';
 }
 
+// Home page "book direct" section: what sets Irish Management apart.
+const UNIQUES = [
+  ['starLine', 'Proven Local Experience', 'With 3,000+ successful stays completed, our experienced and hands-on South Bend team knows exactly what it takes to deliver a smooth, well-executed stay for your entire group.'],
+  ['headset', '24/7 Proactive Support', 'From the moment you book to the day you check out, our local team is available 24/7/365 to provide responsive, proactive communication and ensure everything runs seamlessly.'],
+  ['homeLg', 'Premium Homes', 'We offer the largest collection of spacious, centrally located homes in the South Bend region, designed with modern amenities and room for your group to stay together comfortably.'],
+];
+
 const PROMISES = [
   ['dollar', 'Lower prices, every time', 'Pay less than you would anywhere else. No middlemen or platform fees.'],
   ['phone', 'Direct line, real care', 'Book with the team that actually runs the property. Faster answers, better service, real accountability.'],
@@ -348,11 +358,9 @@ export function renderHome(site, d) {
       searchPill({}) + '</div></section>' +
     '<section class="wrap props"><h2 class="eyebrow-h">Our Properties</h2><div class="grid4">' + d.props.map((p, i) => card(p, null, i < 4)).join('') + '</div>' +
       '<div class="center-btn"><a class="chip" href="/s">See more properties</a></div></section>' +
-    '<section class="occasions"><div class="wrap"><p class="sub">From intimate retreats to estates that sleep 25+, each property is thoughtfully appointed for comfort and style.</p>' +
-      '<h2>Homes for Every Occasion</h2><div class="occ-grid">' +
-      [['occasion-meal', 'Gather Together', 'Space to Share a Meal'], ['occasion-yards', 'Room to Spread Out', 'Yards Made for Tailgates'], ['occasion-kickoff', 'Game Day Ready', 'Rest Up for Kickoff']]
-        .map(([img, a, b]) => '<a class="occ" href="/s"><img src="/img/' + img + '.jpg" alt="" loading="lazy"><div><p>' + a + '</p><h3>' + b + '</h3></div></a>').join('') +
-      '</div></div></section>' +
+    '<section class="direct wrap"><h2>Get more when you book direct</h2>' +
+      '<p class="direct-sub">Better rates than the booking sites, with a local team behind every stay.</p><div class="direct-grid">' +
+      UNIQUES.map(([i, t, s]) => '<div><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + s + '</p></div>').join('') + '</div></section>' +
     (r.count
       ? '<section class="guests wrap"><p class="sub">What Guests Say</p><h2>Trusted by Travelers</h2>' +
         '<p class="big">' + r.average.toFixed(2) + '</p>' + stars(5, 16) + '<p class="count">' + r.count.toLocaleString('en-US') + ' reviews</p>' +
@@ -369,8 +377,6 @@ export function renderHome(site, d) {
     }).join('') +
     (d.facts ? '<section class="wrap faq" id="faq"><h2>Frequently asked questions</h2><div class="faq-list">' +
       homeFaq(site, d.facts).map(([q, a]) => '<details><summary>' + esc(q) + '</summary><p>' + esc(a) + '</p></details>').join('') + '</div></section>' : '') +
-    '<section class="direct wrap"><h2>Get more when you book direct</h2><div class="direct-grid">' +
-      PROMISES.map(([i, t, s]) => '<div><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + s + '</p></div>').join('') + '</div></section>' +
     '<section class="band cta" style="--bg:url(/img/patio.jpg)"><div class="band-in"><p class="sub">From Our South Bend Team</p><h2>Come Stay in Notre Dame Country</h2><a class="chip" href="/s">Browse Homes</a></div></section>';
 
   const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: site.name, url: site.origin + '/' }];
