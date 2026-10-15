@@ -299,15 +299,37 @@
   window.addEventListener('pageshow', function () { el.reserve.disabled = false; el.reserve.textContent = 'Reserve'; });
 
   // ---- questions: OwnerRez inquiry widget, loaded the first time it is opened ----
-  var ask = $('#ask'), askModal = $('#ask-modal');
+  // OwnerRez's widget.js copies the page's query string into the widget, and reads
+  // or_arrival / or_departure / or_adults / or_pets to prefill the form (dates only stick
+  // when they are open). So we add those to the address just while the widget is created,
+  // then put the address back. The widget reloads if the guest changes dates or guests.
+  var ask = $('#ask'), askModal = $('#ask-modal'), askEl = askModal && $('.ask-widget', askModal), askLoaded = null;
+  function loadAsk() {
+    if (!window.OwnerRez || !window.OwnerRez.loadWidget || !askEl) return;
+    var key = [state.arrival || '', state.departure || '', state.guests, state.pets].join('|');
+    if (askLoaded === key) return;
+    askLoaded = key;
+    $$('iframe', askEl).forEach(function (f) { f.remove(); });
+    var orig = location.href, u = new URL(orig);
+    if (state.arrival && state.departure) { u.searchParams.set('or_arrival', state.arrival); u.searchParams.set('or_departure', state.departure); }
+    u.searchParams.set('or_adults', String(state.guests));
+    if (state.pets) u.searchParams.set('or_pets', String(state.pets));
+    history.replaceState(history.state, '', u.toString());
+    try { window.OwnerRez.loadWidget(askEl, askEl.getAttribute('data-widgetId'), askEl.getAttribute('data-propertyId')); }
+    finally { history.replaceState(history.state, '', orig); }
+  }
   if (ask && askModal) {
     ask.addEventListener('click', function () {
       askModal.showModal();
-      if (window.OwnerRez && window.OwnerRez.loadWidgets) { window.OwnerRez.loadWidgets('ownerrez-widget'); return; }
+      if (window.OwnerRez && window.OwnerRez.loadWidget) { loadAsk(); return; }
       if (document.getElementById('or-widget-js')) return;
+      // We create the widget ourselves (loadAsk) so it gets the prefill values.
+      window.OwnerRez = window.OwnerRez || {};
+      window.OwnerRez.skipLoadDefaultWidgets = true;
       var s = document.createElement('script');
       s.id = 'or-widget-js';
       s.src = 'https://app.ownerrez.com/widget.js';
+      s.onload = loadAsk;
       document.body.appendChild(s);
     });
   }
