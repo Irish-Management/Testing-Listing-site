@@ -832,7 +832,7 @@ async function route(request, env, ctx) {
     const homes = local(all);
     const away = DESTINATIONS.map((d) => ({ dest: d, homes: all.filter((p) => p.state === d.state) })).filter((x) => x.homes.length);
     const recent = ((snap && snap.reviews) || []).filter((r) => r.stars >= 4 && r.text.length > 10).slice(0, 4);
-    return html(renderHome(s, { props: homes.slice(0, 10), total: homes.length, rating: siteRating(props, snap), reviews: recent, away, facts: homeFacts(homes),
+    return html(renderHome(s, { props: homes.slice(0, 12), total: homes.length, rating: siteRating(props, snap), reviews: recent, away, facts: homeFacts(homes),
       bigWeekends: EVENTS.filter((e) => (e.date || e.departure) >= todayISO()).slice(0, 3) }));
   }
 

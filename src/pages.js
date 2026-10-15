@@ -4,7 +4,7 @@
 import { GUIDE_INTRO, NOTRE_DAME, GUIDE_SECTIONS, GETTING_AROUND, VISIT_SOUTH_BEND } from './guide.js';
 import { POSTS } from './posts.js';
 
-const V = '51'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '52'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
