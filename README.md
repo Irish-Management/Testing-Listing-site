@@ -115,7 +115,16 @@ The same accounts as the WordPress site, set in `wrangler.toml`: `GTM_ID`, `GA4_
 | `reserve_click` | Reserve is clicked, just before OwnerRez checkout | `value`, `nights`, `guests`, `items` |
 | `inquiry_open` | "Have a question for us?" is opened | `items` |
 | `contact_click` | A call, text, or email link is clicked | `method` (tel, sms, email) |
+| `generate_lead` | An inquiry is sent through the OwnerRez widget (see below) | `check_in`, `check_out`, `guests`, `items` |
 | `booking_complete` | Guest returns to `/thank-you` after paying | `transaction_id` (ORB...), `value`, `items` |
+
+`generate_lead` needs this one line in OwnerRez, under Settings > Widgets > Booking/Inquiry widget >
+Change > Conversion Tracking > **Inquiry Sent**. OwnerRez runs it inside the widget when an inquiry is
+sent, and it tells the property page:
+
+```html
+<script>try { window.parent.postMessage({ irishmgmt: 'inquiry_sent' }, '*'); } catch (e) {}</script>
+```
 
 OwnerRez itself sends the main booking conversion from its checkout (Settings > Advanced Tools >
 Analytics Tracking): GA4 `begin_checkout` and `purchase`, and the Meta Pixel `InitiateCheckout` and

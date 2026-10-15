@@ -71,6 +71,7 @@
     var called = false, finish = function () { if (!called) { called = true; if (done) done(); } };
     if (typeof window.gtag !== 'function') { finish(); return; }
     params = params || {};
+    if (window.IM_GA4) params.send_to = window.IM_GA4;
     if (done) { params.event_callback = finish; params.event_timeout = 1000; setTimeout(finish, 1200); }
     try { window.gtag('event', name, params); } catch (e) { finish(); }
   };

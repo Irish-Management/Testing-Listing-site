@@ -332,6 +332,18 @@
     try { window.OwnerRez.loadWidget(askEl, askEl.getAttribute('data-widgetId'), askEl.getAttribute('data-propertyId')); }
     finally { history.replaceState(history.state, '', orig); }
   }
+  // Sent inquiries: the widget's "Inquiry Sent" conversion box in OwnerRez (Settings >
+  // Widgets > Booking/Inquiry widget > Conversion Tracking) holds a one-line script that
+  // posts { irishmgmt: 'inquiry_sent' } to this page. Count it once per page view.
+  var leadSent = false;
+  window.addEventListener('message', function (e) {
+    if (e.origin !== 'https://app.ownerrez.com' || leadSent) return;
+    var d = e.data;
+    if (typeof d === 'string') { try { d = JSON.parse(d); } catch (x) { return; } }
+    if (!d || d.irishmgmt !== 'inquiry_sent') return;
+    leadSent = true;
+    U.track('generate_lead', { lead_source: 'inquiry_widget', check_in: state.arrival || undefined, check_out: state.departure || undefined, guests: state.guests, items: [{ item_id: String(boot.id), item_name: boot.name }] });
+  });
   if (ask && askModal) {
     ask.addEventListener('click', function () {
       askModal.showModal();

@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '44'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '46'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -198,7 +198,9 @@ function trackingHead(site) {
   if (!t) return '';
   const ga4Config = { linker: { domains: ['app.ownerrez.com'] } };
   if (t.debug) ga4Config.debug_mode = true;
-  return '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());' +
+  // IM_GA4 makes site events go only to this property: the OwnerRez widget adds its own
+  // GA4 property to the page, and events without send_to would go there too.
+  return '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());window.IM_GA4=' + json(t.ga4 || '') + ';' +
       (t.ga4 ? 'gtag("config",' + json(t.ga4) + ',' + json(ga4Config) + ');' : '') + '</script>' +
     (t.ga4 ? '<script async src="https://www.googletagmanager.com/gtag/js?id=' + t.ga4 + '"></script>' : '') +
     (t.gtm ? '<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({"gtm.start":new Date().getTime(),event:"gtm.js"});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src="https://www.googletagmanager.com/gtm.js?id="+i+dl;f.parentNode.insertBefore(j,f);})(window,document,"script","dataLayer",' + json(t.gtm) + ');</script>' : '') +
