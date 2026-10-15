@@ -36,6 +36,21 @@ p{margin:0}
 .logo img{width:36px;height:36px}
 .hsearch{flex:1;display:flex;justify-content:center;align-items:center;gap:16px;min-width:0}
 .menu-wrap{position:relative}
+/* desktop top navigation (menu button below these widths) */
+.topnav{display:none;align-items:center;gap:2px;margin-left:auto}
+.topnav>a,.dd-btn{display:inline-flex;align-items:center;gap:4px;height:40px;padding:0 14px;border:0;border-radius:999px;background:none;color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap}
+.topnav>a:hover,.dd-btn:hover,.dd:focus-within .dd-btn{background:var(--light)}
+.topnav>a[aria-current="page"],.dd-btn.on{background:var(--chip)}
+.topnav .nav-cta{background:var(--navy);color:var(--light);margin-left:8px;padding:0 18px}
+.topnav .nav-cta:hover{background:var(--navy);filter:brightness(1.15)}
+.dd{position:relative}
+.dd-menu{display:none;position:absolute;left:0;top:100%;padding-top:8px;min-width:240px;z-index:40}
+.dd-menu::before{content:"";position:absolute;inset:8px 0 0;background:#fff;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.14);z-index:-1}
+.dd:hover .dd-menu,.dd:focus-within .dd-menu,.dd.open .dd-menu{display:flex;flex-direction:column;padding:16px 8px 8px}
+.dd-menu a{padding:10px 12px;border-radius:8px;text-decoration:none;font-size:14px;color:var(--ink)}
+.dd-menu a:hover,.dd-menu a[aria-current="page"]{background:var(--light)}
+@media (min-width:1100px){.site-header:not(.with-search) .topnav{display:flex}.site-header:not(.with-search) .menu-wrap{display:none}}
+@media (min-width:1360px){.with-search .topnav{display:flex}.with-search .menu-wrap{display:none}}
 .menu{position:absolute;right:0;top:48px;min-width:220px;background:#fff;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.14);padding:8px;display:flex;flex-direction:column}
 .menu a{padding:10px 12px;border-radius:8px;text-decoration:none;font-size:14px}
 .menu a:hover{background:var(--light)}

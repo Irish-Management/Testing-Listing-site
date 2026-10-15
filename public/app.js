@@ -53,6 +53,13 @@
   U.keepOpenWith = function (els) { if (openPop) openPop.keep = els; };
 
   // ---- menu ----
+  // Desktop "Homes" dropdown: opens on hover or keyboard focus (CSS); a click toggles it for touch screens.
+  $$('.dd-btn').forEach(function (b) {
+    var dd = b.parentNode;
+    b.addEventListener('click', function (e) { e.stopPropagation(); var open = dd.classList.toggle('open'); b.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+    document.addEventListener('click', function (e) { if (!dd.contains(e.target)) { dd.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); } });
+    dd.addEventListener('keydown', function (e) { if (e.key === 'Escape') { dd.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); b.focus(); } });
+  });
   $$('[data-menu]').forEach(function (b) {
     var nav = b.parentNode.querySelector('.menu');
     b.addEventListener('click', function () { if (U.isOpen(nav)) U.closePop(); else U.showPop(nav, b); });

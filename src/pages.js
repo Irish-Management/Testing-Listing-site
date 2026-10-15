@@ -4,7 +4,7 @@
 import { GUIDE_INTRO, NOTRE_DAME, GUIDE_SECTIONS, GETTING_AROUND, VISIT_SOUTH_BEND } from './guide.js';
 import { POSTS } from './posts.js';
 
-const V = '54'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '55'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -290,12 +290,27 @@ function rangeLabel(a, b) {
   return shortDate(a) + ' - ' + (sameMonth ? db.getUTCDate() : shortDate(b));
 }
 
+// Desktop navigation across the top of the page. Phones and tablets keep the menu button
+// (CSS decides which one shows). current is the page's path, to highlight where you are.
+function topNav(site, current) {
+  const link = (href, label) => '<a href="' + href + '"' + (current === href ? ' aria-current="page"' : '') + '>' + label + '</a>';
+  const homes = [['/s', 'All homes']].concat(COLLECTIONS.map((c) => ['/listings/' + c.slug, esc(c.name)]), DESTINATIONS.map((d) => ['/listings/' + d.slug, esc(d.name)]));
+  const inHomes = homes.some(([h]) => h === current);
+  return '<nav class="topnav" aria-label="Main">' +
+    '<div class="dd"><button type="button" class="dd-btn' + (inHomes ? ' on' : '') + '" aria-haspopup="true" aria-expanded="false">Homes ' + ICON.down.replace(/width="18" height="18"/, 'width="14" height="14"') + '</button>' +
+      '<div class="dd-menu">' + homes.map(([h, l]) => link(h, l)).join('') + '</div></div>' +
+    link('/listings/big-dates', 'Big Weekends') + link('/area-guide', 'Area Guide') + link('/blog', 'Blog') + link('/reviews', 'Reviews') + link('/management', 'Owners') +
+    '<a class="nav-cta" href="/s">Book a stay</a>' +
+    '</nav>';
+}
+
 function header(site, opts) {
   return '<header class="site-header' + (opts.headerSearch ? ' with-search' : '') + '"><div class="hwrap">' +
     '<a class="logo" href="/" aria-label="' + esc(site.name) + ' home"><img src="/img/logo.png" alt="' + esc(site.name) + '" width="36" height="36"></a>' +
     (opts.headerSearch ? '<div class="hsearch">' + searchPill(opts.q) + (opts.filters ? opts.filters : '') + '</div>' : '') +
+    topNav(site, opts.canonical || '') +
     '<div class="menu-wrap"><button type="button" class="iconbtn" data-menu aria-expanded="false" aria-label="Menu">' + ICON.menu + '</button>' +
-      '<nav class="menu" aria-label="Main" hidden>' +
+      '<nav class="menu" aria-label="Menu" hidden>' +
         '<a href="/">Home</a><a href="/s">All homes</a>' +
         '<span class="menu-label">Listings</span>' + COLLECTIONS.map((c) => '<a class="sub" href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a class="sub" href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a class="sub" href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') +
         '<span class="menu-sep" aria-hidden="true"></span><a href="/reviews">Guest reviews</a><a href="/area-guide">Area guide</a><a href="/blog">Blog</a><a href="/management">Property management</a>' +
