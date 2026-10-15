@@ -4,7 +4,7 @@
 
 import {
   renderHome, renderSearch, renderProperty, renderThanks, renderNotFound, renderError,
-  renderReviews, renderSitemap, renderTerms, renderPrivacy, AMENITY_FILTERS,
+  renderReviews, renderSitemap, renderTerms, renderPrivacy, AMENITY_FILTERS, COLLECTIONS,
 } from './pages.js';
 
 const API = 'https://api.ownerrez.com';
@@ -90,6 +90,8 @@ function publicProperty(p) {
     // The property key is OwnerRez's public widget identifier (it appears in every widget
     // embed code). The inquiry widget needs it, without dashes, to file the inquiry under this home.
     key: String(p.key || '').replace(/-/g, ''),
+    // Lowercased OwnerRez tags, used only to build the collection pages.
+    tags: (p.tags || []).map((t) => String(t).trim().toLowerCase()),
     title: p.external_name || p.name,
     bedrooms: p.bedrooms || 0,
     bathrooms: p.bathrooms || 0,
@@ -137,7 +139,7 @@ async function fetchProperties(env) {
 }
 
 function getProperties(env, ctx) {
-  return cached(ctx, 'properties:v4', 900, () => fetchProperties(env));
+  return cached(ctx, 'properties:v5', 900, () => fetchProperties(env));
 }
 
 // OwnerRez amenity text contains HTML entities such as "&ndash;". Decode them to plain
@@ -614,10 +616,19 @@ async function route(request, env, ctx) {
     return html(renderHome(s, { props: homes.slice(0, 10), total: homes.length, rating: siteRating(props, snap), reviews: recent }));
   }
 
-  if (path === '/s' && request.method === 'GET') {
+  if (path === '/listings' && request.method === 'GET') return Response.redirect(url.origin + '/s' + url.search, 301);
+  const colMatch = path.match(/^\/listings\/([\w-]+)$/);
+  if ((path === '/s' || colMatch) && request.method === 'GET') {
     const q = searchParams(url);
+    const slug = colMatch ? colMatch[1] : url.searchParams.get('collection');
+    q.collection = slug ? COLLECTIONS.find((c) => c.slug === slug) || null : null;
+    if (colMatch && !q.collection) return html(renderNotFound(s), 404);
     const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
     let homes = withSnapshot(props, snap);
+    if (q.collection) {
+      const tag = q.collection.tag.toLowerCase();
+      homes = homes.filter((p) => p.tags.includes(tag));
+    }
     let notice = '';
     q.searched = false;
     if (q.arrival || q.departure) {
