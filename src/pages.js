@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '22'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '24'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -66,6 +66,16 @@ export const COLLECTIONS = [
     description: 'Find homes within walking distance to Notre Dame with Irish Management. Enjoy convenient access to campus and local attractions from our well-located properties.' },
   { slug: 'small-groups', tag: 'Smaller Groups', name: 'Smaller Groups',
     description: 'Discover cozy homes for smaller groups with Irish Management. Perfect for intimate gatherings, these listings offer comfort and charm for your next getaway.' },
+];
+
+// Homes outside the South Bend area, matched by state. Each gets a showcase page at
+// /listings/<slug> and a home page feature, and stays out of the South Bend search.
+export const DESTINATIONS = [
+  {
+    slug: 'florida', state: 'FL', name: 'Florida Getaway', eyebrow: 'Beyond South Bend',
+    title: 'Trade game day for beach days',
+    intro: 'Our Gulf Coast condo at Isla del Sol in St. Petersburg, Florida has 2 bedrooms, 2 baths, beach access, and a pool. Booked direct with the same local team.',
+  },
 ];
 
 // Collection slugs a home belongs to, from its OwnerRez tags.
@@ -167,8 +177,6 @@ function searchPill(q, extraClass) {
   const when = q.arrival && q.departure ? rangeLabel(q.arrival, q.departure) : '';
   const who = q.guests ? plural(q.guests, 'guest') + (q.pets ? ', ' + plural(q.pets, 'pet') : '') : '';
   return '<form class="pill ' + (extraClass || '') + '" action="/s" method="get" role="search" data-search>' +
-    '<button type="button" class="pill-seg pill-where" data-where>' + ICON.search + '<span>South Bend</span></button>' +
-    '<span class="pill-sep" aria-hidden="true"></span>' +
     '<button type="button" class="pill-seg' + (when ? ' set' : '') + '" data-when aria-haspopup="dialog">' + (when ? esc(when) : 'When') + '</button>' +
     '<span class="pill-sep" aria-hidden="true"></span>' +
     '<button type="button" class="pill-seg' + (who ? ' set' : '') + '" data-who aria-haspopup="dialog">' + (who ? esc(who) : 'Who') + '</button>' +
@@ -176,6 +184,7 @@ function searchPill(q, extraClass) {
     '<input type="hidden" name="guests" value="' + esc(q.guests || '') + '"><input type="hidden" name="pets" value="' + esc(q.pets || '') + '">' +
     (q.bedrooms ? '<input type="hidden" name="bedrooms" value="' + esc(q.bedrooms) + '">' : '') +
     (q.collection ? '<input type="hidden" name="collection" value="' + esc(q.collection.slug) + '">' : '') +
+    (q.dest ? '<input type="hidden" name="dest" value="' + esc(q.dest.slug) + '">' : '') +
     '<button type="submit" class="pill-go">Search</button>' +
     '</form>';
 }
@@ -193,7 +202,7 @@ function header(site, opts) {
     '<div class="menu-wrap"><button type="button" class="iconbtn" data-menu aria-expanded="false" aria-label="Menu">' + ICON.menu + '</button>' +
       '<nav class="menu" aria-label="Main" hidden>' +
         '<a href="/">Home</a><a href="/s">All homes</a>' +
-        '<span class="menu-label">Listings</span>' + COLLECTIONS.map((c) => '<a class="sub" href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a class="sub" href="/listings/big-dates">Big Weekends</a>' +
+        '<span class="menu-label">Listings</span>' + COLLECTIONS.map((c) => '<a class="sub" href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a class="sub" href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a class="sub" href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') +
         '<span class="menu-sep" aria-hidden="true"></span><a href="/reviews">Guest reviews</a>' +
         (site.sms ? '<a href="sms:' + esc(site.sms) + '">Text us</a>' : '') +
         (site.email ? '<a href="mailto:' + esc(site.email) + '">Email us</a>' : '') +
@@ -214,7 +223,7 @@ function footer(site) {
   ].filter(Boolean).join('');
   return '<footer class="site-footer">' + contact +
     '<div class="fwrap fgrid"><div><img src="/img/logo.png" alt="' + esc(site.name) + '" width="32" height="32"></div>' +
-      '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a href="/listings/big-dates">Big Weekends</a></div>' +
+      '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') + '</div>' +
       (social ? '<div><h2>Social</h2>' + social + '</div>' : '') + '</div></div>' +
     '<div class="fbottom"><div class="fwrap"><span>&copy; ' + new Date().getUTCFullYear() + ' ' + esc(site.name) + '</span>' +
       '<nav aria-label="Legal"><a href="/terms">Terms of Service</a><span aria-hidden="true">&middot;</span><a href="/privacy-policy">Privacy Policy</a><span aria-hidden="true">&middot;</span><a href="/sitemap">Sitemap</a></nav></div></div>' +
@@ -301,6 +310,14 @@ export function renderHome(site, d) {
       : '') +
     '<section class="band" style="--bg:url(/img/welcome.jpg)"><div class="band-in"><p class="sub">Irish Management</p><h2>Welcoming Guests to Notre Dame</h2>' +
       '<div class="stats"><div><p>65+</p><p>Properties Managed</p></div><div><p>3 Cities</p><p>Across the Region</p></div><div><p>24/7</p><p>Guest Support</p></div></div></div></section>' +
+    (d.away || []).map(({ dest, homes }) => {
+      const h = homes[0];
+      const img = h.photos && h.photos[0];
+      return '<section class="wrap away"><a class="away-card" href="/listings/' + dest.slug + '">' +
+        (img ? '<img src="' + esc(img) + '" alt="' + esc(h.title) + '" loading="lazy">' : '') +
+        '<div><p class="sub">' + esc(dest.eyebrow) + '</p><h2>' + esc(dest.title) + '</h2><p class="muted">' + esc(dest.intro) + '</p>' +
+        '<span class="btn-dark big">' + (homes.length === 1 ? 'See the ' + esc(dest.name.replace(/ Getaway$/, '')) + ' condo' : 'See ' + homes.length + ' homes') + '</span></div></a></section>';
+    }).join('') +
     '<section class="direct wrap"><h2>Get more when you book direct</h2><div class="direct-grid">' +
       PROMISES.map(([i, t, s]) => '<div><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + s + '</p></div>').join('') + '</div></section>' +
     '<section class="band cta" style="--bg:url(/img/come-stay.jpg)"><div class="band-in"><p class="sub">From Our South Bend Team</p><h2>Come Stay in Notre Dame Country</h2><a class="chip" href="/s">Browse Homes</a></div></section>';
@@ -322,8 +339,8 @@ export function renderSearch(site, d) {
   const filters = '<div class="filters-wrap"><button type="button" class="filters-btn" id="filters-open" aria-haspopup="dialog">' + ICON.sliders + '<span>Filters</span><span class="fcount" id="fcount" hidden></span></button></div>';
   const filterModal = '<dialog class="modal filters-modal" id="filters" aria-label="Filters"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Filters</strong><span></span></div>' +
     '<div class="modal-body">' +
-      '<section class="fsec"><h3>Collection</h3><div class="chips">' +
-        COLLECTIONS.map((c) => '<button type="button" class="fchip" data-col="' + c.slug + '" aria-pressed="false">' + esc(c.name) + '</button>').join('') + '</div></section>' +
+      (q.dest ? '' : '<section class="fsec"><h3>Collection</h3><div class="chips">' +
+        COLLECTIONS.map((c) => '<button type="button" class="fchip" data-col="' + c.slug + '" aria-pressed="false">' + esc(c.name) + '</button>').join('') + '</div></section>') +
       '<section class="fsec"><h3>' + (q.searched ? 'Total price' : 'Price per night') + '</h3>' +
         '<p class="muted small">' + (q.searched ? 'Rent and fees for your dates, before taxes.' : 'Based on each home\u2019s next available stay, before taxes.') + '</p>' +
         '<div class="hist" id="hist" aria-hidden="true"></div>' +
@@ -336,8 +353,9 @@ export function renderSearch(site, d) {
   const col = q.collection;
   const shownCount = col ? d.props.filter((p) => collectionsOf(p).includes(col.slug)).length : d.props.length;
   const body =
-    '<div class="search-layout"><section class="results">' +
+    '<div class="search-layout"><section class="results" data-collection="' + (col ? col.slug : '') + '">' +
       (d.notice ? '<p class="notice">' + esc(d.notice) + '</p>' : '') +
+      (q.dest ? '<div class="dest-intro"><p class="sub">' + esc(q.dest.eyebrow) + '</p><h2>' + esc(q.dest.title) + '</h2><p class="muted">' + esc(q.dest.intro) + '</p></div>' : '') +
       '<div class="results-head"><h1 class="eyebrow-h" id="rcount">' + plural(shownCount, 'property', 'properties') + ' available</h1>' +
       (d.props.length > 1 ? '<label class="sort">Sort by <select id="sort">' +
         [['', 'Recommended'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['bedrooms', 'Most bedrooms'], ['rating', 'Top rated']]
@@ -348,9 +366,9 @@ export function renderSearch(site, d) {
     '</section><aside class="mapcol"><div id="map" class="map" aria-label="Map of homes"></div></aside></div>' +
     filterModal +
     '<script type="application/json" id="pins">' + json(pins) + '</script>';
-  const title = (col ? col.name : 'All homes') + (q.searched ? ', open ' + rangeLabel(q.arrival, q.departure) : '');
+  const title = (q.dest ? q.dest.name : col ? col.name : 'All homes') + (q.searched ? ', open ' + rangeLabel(q.arrival, q.departure) : '');
   return layout(site, title + ' | ' + site.name, body,
-    { headerSearch: true, q, filters, map: true, script: 'search', bodyClass: 'searchpage', description: col ? col.description : undefined });
+    { headerSearch: true, q, filters, map: true, script: 'search', bodyClass: 'searchpage', description: q.dest ? q.dest.intro : col ? col.description : undefined });
 }
 
 export function renderProperty(site, d) {

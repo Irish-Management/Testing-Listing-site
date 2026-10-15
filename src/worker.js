@@ -4,7 +4,7 @@
 
 import {
   renderHome, renderSearch, renderProperty, renderThanks, renderNotFound, renderError,
-  renderReviews, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS,
+  renderReviews, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS, DESTINATIONS,
 } from './pages.js';
 import { EVENTS, EVENT_GROUPS } from './events.js';
 
@@ -80,7 +80,7 @@ async function cached(ctx, key, ttlSeconds, fn) {
 // ---------- Data ----------
 
 function stateAbbr(s) {
-  const map = { indiana: 'IN', michigan: 'MI', illinois: 'IL', ohio: 'OH' };
+  const map = { indiana: 'IN', michigan: 'MI', illinois: 'IL', ohio: 'OH', florida: 'FL' };
   return map[String(s || '').toLowerCase()] || s || '';
 }
 
@@ -483,6 +483,11 @@ function amenityCodes(l) {
   return AMENITY_FILTERS.filter(([, , re, not]) => names.some((n) => re.test(n) && !(not && not.test(n)))).map(([code]) => code);
 }
 
+// Homes outside the South Bend area (e.g. the Florida condo) get their own showcase page and
+// are left out of the South Bend home page, search, map, and Big Weekends counts.
+function destinationOf(p) { return DESTINATIONS.find((d) => d.state === p.state) || null; }
+function local(props) { return props.filter((p) => !destinationOf(p)); }
+
 function withSnapshot(props, snap) {
   return props.map((p) => {
     const s = (snap && snap.props && snap.props[p.id]) || {};
@@ -652,15 +657,17 @@ async function route(request, env, ctx) {
 
   if (path === '/' && request.method === 'GET') {
     const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
-    const homes = withSnapshot(props, snap);
+    const all = withSnapshot(props, snap);
+    const homes = local(all);
+    const away = DESTINATIONS.map((d) => ({ dest: d, homes: all.filter((p) => p.state === d.state) })).filter((x) => x.homes.length);
     const recent = ((snap && snap.reviews) || []).filter((r) => r.stars >= 4 && r.text.length > 10).slice(0, 4);
-    return html(renderHome(s, { props: homes.slice(0, 10), total: homes.length, rating: siteRating(props, snap), reviews: recent }));
+    return html(renderHome(s, { props: homes.slice(0, 10), total: homes.length, rating: siteRating(props, snap), reviews: recent, away }));
   }
 
   if (path === '/listings' && request.method === 'GET') return Response.redirect(url.origin + '/s' + url.search, 301);
   if ((path === '/listings/big-dates' || path === '/big-dates') && request.method === 'GET') {
     const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
-    const homes = withSnapshot(props, snap);
+    const homes = local(withSnapshot(props, snap));
     const byId = new Map(homes.map((p) => [p.id, p]));
     const today = todayISO();
     const upcoming = EVENTS.filter((e) => (e.date || e.departure) >= today && validStay(e.arrival, e.departure));
@@ -683,16 +690,19 @@ async function route(request, env, ctx) {
         photos: openHomes.filter((p) => p.photos && p.photos.length).slice(0, 3).map((p) => ({ url: p.photos[0], title: p.title })),
       });
     }));
-    return html(renderBigDates(s, { events, groups: EVENT_GROUPS, total: props.length }));
+    return html(renderBigDates(s, { events, groups: EVENT_GROUPS, total: homes.length }));
   }
   const colMatch = path.match(/^\/listings\/([\w-]+)$/);
   if ((path === '/s' || colMatch) && request.method === 'GET') {
     const q = searchParams(url);
     const slug = colMatch ? colMatch[1] : url.searchParams.get('collection');
-    q.collection = slug ? COLLECTIONS.find((c) => c.slug === slug) || null : null;
-    if (colMatch && !q.collection) return html(renderNotFound(s), 404);
+    const destSlug = colMatch ? colMatch[1] : url.searchParams.get('dest');
+    q.dest = destSlug ? DESTINATIONS.find((d) => d.slug === destSlug) || null : null;
+    q.collection = !q.dest && slug ? COLLECTIONS.find((c) => c.slug === slug) || null : null;
+    if (colMatch && !q.collection && !q.dest) return html(renderNotFound(s), 404);
     const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
-    let homes = withSnapshot(props, snap);
+    const all = withSnapshot(props, snap);
+    let homes = q.dest ? all.filter((p) => p.state === q.dest.state) : local(all);
     let notice = '';
     q.searched = false;
     if (q.arrival || q.departure) {

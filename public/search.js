@@ -45,7 +45,7 @@
     var near = bounds.slice().sort(function (a, b) {
       return (Math.pow(a[0] - c[0], 2) + Math.pow(a[1] - c[1], 2)) - (Math.pow(b[0] - c[0], 2) + Math.pow(b[1] - c[1], 2));
     }).slice(0, Math.max(1, Math.ceil(bounds.length * 0.85)));
-    map.fitBounds(near, { padding: [30, 30], maxZoom: 15 });
+    map.fitBounds(near, { padding: [30, 30], maxZoom: near.length > 1 ? 15 : 12 });
     map.on('zoomend moveend', declutter);
   }
   function setPin(id, price, sub) {
@@ -150,8 +150,9 @@
   // Keep sort and filter choices in the URL and in the search form, so a new date search keeps them.
   function syncParams(params) {
     var u = new URL(location.href);
-    var m = u.pathname.match(/^\/listings\/([\w-]+)/);
-    if (m) { u.pathname = '/s'; if (!('collection' in params)) params.collection = m[1]; }
+    // Moving off /listings/<collection> to /s keeps the collection as a parameter; destination pages stay put.
+    var col0 = $('.results') && $('.results').getAttribute('data-collection');
+    if (col0 && /^\/listings\//.test(u.pathname)) { u.pathname = '/s'; if (!('collection' in params)) params.collection = col0; }
     Object.keys(params).forEach(function (k) { if (params[k]) u.searchParams.set(k, params[k]); else u.searchParams.delete(k); });
     history.replaceState(null, '', u.toString());
     $$('form[data-search]').forEach(function (f) {
@@ -179,7 +180,8 @@
     baths: +url.searchParams.get('baths') || 0,
     pets: url.searchParams.get('petsok') === '1',
     amen: (url.searchParams.get('amen') || '').split(',').filter(Boolean),
-    collection: url.searchParams.get('collection') || ((url.pathname.match(/^\/listings\/([\w-]+)/) || [])[1]) || '',
+    // The server says which collection the page opened with (a /listings/<slug> address may be a destination instead).
+    collection: ($('.results') && $('.results').getAttribute('data-collection')) || '',
   };
   var draft = null;
   var clone = function (s) { return { min: s.min, max: s.max, beds: s.beds, baths: s.baths, pets: s.pets, amen: s.amen.slice(), collection: s.collection }; };
