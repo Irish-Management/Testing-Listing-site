@@ -96,12 +96,10 @@
   };
   U.initCarousels(document);
 
-  // ---- footer email signup (Flodesk), loaded only when the footer comes near view ----
-  var fdEl = $('[data-flodesk]');
-  if (fdEl) {
-    var loadFd = function () {
-      if (window.FlodeskObject) return;
-      // Flodesk's standard loader snippet.
+  // ---- Flodesk: footer signup form and site-wide popup ----
+  // The loader is Flodesk's standard snippet, added only when one of the forms needs it.
+  var fdReady = function () {
+    if (!window.FlodeskObject) {
       (function (w, d, t, h, s, n) {
         w.FlodeskObject = n;
         var fn = function () { (w[n].q = w[n].q || []).push(arguments); };
@@ -111,8 +109,20 @@
         var sm = d.createElement(t); sm.async = true; sm.type = 'module'; sm.src = h + s + '.mjs' + v; f.parentNode.insertBefore(sm, f);
         var sn = d.createElement(t); sn.async = true; sn.noModule = true; sn.src = h + s + '.js' + v; f.parentNode.insertBefore(sn, f);
       })(window, document, 'script', 'https://assets.flodesk.com', '/universal', 'fd');
-      window.fd('form', { formId: fdEl.getAttribute('data-flodesk'), containerEl: '#' + fdEl.id });
-    };
+    }
+    return window.fd;
+  };
+  // Popup: when and how it appears is set in Flodesk. Load it after the page has finished loading.
+  var popupId = document.body.getAttribute('data-flodesk-popup');
+  if (popupId) {
+    var startPopup = function () { fdReady()('form', { formId: popupId }); };
+    var idle = function () { if (window.requestIdleCallback) requestIdleCallback(startPopup, { timeout: 3000 }); else setTimeout(startPopup, 1); };
+    if (document.readyState === 'complete') idle(); else window.addEventListener('load', idle, { once: true });
+  }
+  // Footer form: load when the footer comes near view.
+  var fdEl = $('[data-flodesk]');
+  if (fdEl) {
+    var loadFd = function () { fdReady()('form', { formId: fdEl.getAttribute('data-flodesk'), containerEl: '#' + fdEl.id }); };
     if ('IntersectionObserver' in window) {
       var fdObs = new IntersectionObserver(function (es) { if (es.some(function (e) { return e.isIntersecting; })) { fdObs.disconnect(); loadFd(); } }, { rootMargin: '600px' });
       fdObs.observe(fdEl);

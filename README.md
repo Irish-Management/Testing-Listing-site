@@ -65,6 +65,9 @@ The footer shows the Flodesk signup form set in `NEWSLETTER_FORM_ID` (in `wrangl
 colors, and button are designed in Flodesk. Flodesk loads only when a visitor scrolls near the footer,
 so it does not slow down the page. Leave the ID blank to hide the signup.
 
+The Flodesk popup in `NEWSLETTER_POPUP_ID` loads on every page after the page finishes loading. When and how
+often it appears is set in Flodesk. Leave it blank to turn the popup off.
+
 ## Choosing which homes show
 
 - Anything with "Home Watch" in the name is hidden. Add more words to `EXCLUDE_NAME_CONTAINS`, comma separated.

@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '38'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '40'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -209,7 +209,7 @@ function layout(site, title, body, opts = {}) {
     '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap">' +
     (opts.map ? '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">' : '') +
     '<link rel="stylesheet" href="/site.css?v=' + V + '">' +
-    '</head><body class="' + (opts.bodyClass || '') + '">' +
+    '</head><body class="' + (opts.bodyClass || '') + '"' + (site.newsletterPopup ? ' data-flodesk-popup="' + site.newsletterPopup + '"' : '') + '>' +
     '<a class="skip" href="#main">Skip to content</a>' +
     (opts.textBar && site.sms ? '<div class="textbar"><a href="sms:' + esc(site.sms) + '">Have questions? Text us</a></div>' : '') +
     header(site, opts) +

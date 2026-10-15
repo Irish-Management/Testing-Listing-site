@@ -561,6 +561,7 @@ function site(env, url) {
     leadDays: leadDays(env),
     inquiryWidget: (env.INQUIRY_WIDGET_ID || '').trim(),
     newsletterForm: /^[a-f0-9]{24}$/.test((env.NEWSLETTER_FORM_ID || '').trim()) ? env.NEWSLETTER_FORM_ID.trim() : '',
+    newsletterPopup: /^[a-f0-9]{24}$/.test((env.NEWSLETTER_POPUP_ID || '').trim()) ? env.NEWSLETTER_POPUP_ID.trim() : '',
   };
 }
 
