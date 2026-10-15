@@ -307,12 +307,14 @@ function getQuote(env, ctx, q) {
 }
 
 async function searchAvailable(env, ctx, arrival, departure) {
-  return cached(ctx, 'search:v1:' + arrival + ':' + departure, 300, async () => {
+  return cached(ctx, 'search:v2:' + arrival + ':' + departure, 300, async () => {
     const ids = [];
     let offset = 0;
     for (let i = 0; i < 10; i++) {
       const r = await or(env, '/v2/propertysearch', {
-        query: { available_from: arrival, available_to: addDays(departure, -1), evaluate_rules: true, limit: 100, offset },
+        // available_to is the checkout date: OwnerRez evaluates min-night rules over this range,
+        // and a booking that starts on the checkout day does not block the stay.
+        query: { available_from: arrival, available_to: departure, evaluate_rules: true, limit: 100, offset },
       });
       const items = (r && r.items) || [];
       for (const it of items) if (!it.rule_violations || it.rule_violations.length === 0) ids.push(it.id);

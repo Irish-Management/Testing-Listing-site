@@ -181,7 +181,6 @@ function footer(site) {
 function propHref(p, q) {
   const params = new URLSearchParams();
   if (q && q.arrival && q.departure) { params.set('checkin', q.arrival); params.set('checkout', q.departure); }
-  else if (p.stay) { params.set('checkin', p.stay.arrival); params.set('checkout', p.stay.departure); }
   if (q && q.guests) params.set('guests', String(q.guests));
   if (q && q.pets) params.set('pets', String(q.pets));
   const qs = params.toString();
