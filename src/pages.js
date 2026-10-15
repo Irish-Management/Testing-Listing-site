@@ -371,7 +371,7 @@ export function renderHome(site, d) {
       homeFaq(site, d.facts).map(([q, a]) => '<details><summary>' + esc(q) + '</summary><p>' + esc(a) + '</p></details>').join('') + '</div></section>' : '') +
     '<section class="direct wrap"><h2>Get more when you book direct</h2><div class="direct-grid">' +
       PROMISES.map(([i, t, s]) => '<div><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + s + '</p></div>').join('') + '</div></section>' +
-    '<section class="band cta" style="--bg:url(/img/come-stay.jpg)"><div class="band-in"><p class="sub">From Our South Bend Team</p><h2>Come Stay in Notre Dame Country</h2><a class="chip" href="/s">Browse Homes</a></div></section>';
+    '<section class="band cta" style="--bg:url(/img/patio.jpg)"><div class="band-in"><p class="sub">From Our South Bend Team</p><h2>Come Stay in Notre Dame Country</h2><a class="chip" href="/s">Browse Homes</a></div></section>';
 
   const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: site.name, url: site.origin + '/' }];
   if (d.facts) schema.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: homeFaq(site, d.facts).map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
