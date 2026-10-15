@@ -53,6 +53,7 @@ set a `REFRESH_KEY` secret, then run this 8 times:
 ## Choosing which homes show
 
 - Anything with "Home Watch" in the name is hidden. Add more words to `EXCLUDE_NAME_CONTAINS`, comma separated.
+- Anything tagged `Do Not Market` in OwnerRez is hidden. Add more tags to `EXCLUDE_TAGS`, comma separated.
 - For tighter control, tag the homes you want listed in OwnerRez (for example `Direct Booking`)
   and set `REQUIRE_TAG = "Direct Booking"`.
 

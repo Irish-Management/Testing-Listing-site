@@ -121,6 +121,8 @@ async function fetchProperties(env) {
   const excludes = (env.EXCLUDE_NAME_CONTAINS || 'Home Watch')
     .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
   const requiredTag = (env.REQUIRE_TAG || '').trim().toLowerCase();
+  const hiddenTags = (env.EXCLUDE_TAGS == null ? 'Do Not Market' : env.EXCLUDE_TAGS)
+    .split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
 
   return all
     .filter((p) => p.active && !p.is_snoozed && (p.bedrooms || 0) > 0)
@@ -129,12 +131,13 @@ async function fetchProperties(env) {
       return !excludes.some((x) => names.includes(x));
     })
     .filter((p) => !requiredTag || (p.tags || []).some((t) => String(t).toLowerCase() === requiredTag))
+    .filter((p) => !(p.tags || []).some((t) => hiddenTags.includes(String(t).trim().toLowerCase())))
     .map(publicProperty)
     .sort((a, b) => (a.order - b.order) || a.title.localeCompare(b.title));
 }
 
 function getProperties(env, ctx) {
-  return cached(ctx, 'properties:v3', 900, () => fetchProperties(env));
+  return cached(ctx, 'properties:v4', 900, () => fetchProperties(env));
 }
 
 // OwnerRez amenity text contains HTML entities such as "&ndash;". Decode them to plain

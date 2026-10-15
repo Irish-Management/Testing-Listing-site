@@ -32,6 +32,8 @@ MIN_LEAD_DAYS = "3"
 INQUIRY_WIDGET_ID = "ea48066e233740ce80c27dccc478dfc3"
 # Properties whose name contains any of these (comma separated) are hidden from the site.
 EXCLUDE_NAME_CONTAINS = "Home Watch"
+# Properties with any of these OwnerRez tags (comma separated) are hidden from the site.
+EXCLUDE_TAGS = "Do Not Market"
 # Optional: only show properties with this OwnerRez tag, for example "Direct Booking".
 REQUIRE_TAG = ""
 
