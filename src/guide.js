@@ -25,7 +25,6 @@ export const GUIDE_SECTIONS = [
     intro: 'Local favorites for a big group dinner, a date night, or a pub meal after the game.',
     kind: 'Restaurant',
     places: [
-      { name: 'LaSalle Grill', area: 'Downtown South Bend', url: 'https://www.lasallegrill.com/', text: 'Upscale modern American dining with prime steaks and fresh seafood. Elegant and polished, a go-to for special occasions.' },
       { name: 'Fiddler’s Hearth', url: 'https://fiddlershearth.com/', text: 'An authentic Irish pub with shepherd’s pie, fish and chips, and bangers and mash, plus live music.' },
       { name: 'Cafe Navarre', area: 'Downtown South Bend', url: 'https://www.cafenavarre.co/', text: 'French, Spanish, and Italian influences in a beautifully restored historic building. Perfect for a special night out.' },
       { name: 'Woochi Japanese Fusion & Bar', area: 'Downtown South Bend', url: 'https://www.notjustsushi.com/', text: 'Fresh sushi, creative fusion dishes, and bold cocktails in a lively setting.' },
