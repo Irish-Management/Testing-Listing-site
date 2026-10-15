@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '36'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '37'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -357,6 +357,12 @@ const UNIQUES = [
   ['homeLg', 'Premium Homes', 'We offer the largest collection of spacious, centrally located homes in the South Bend region, designed with modern amenities and room for your group to stay together comfortably.'],
 ];
 
+// Shown on every property page: in the booking card, the promise section, and its modal.
+const GUARANTEE = {
+  title: 'The Stay Irish Guarantee',
+  text: 'Book direct with confidence. In the rare event that a critical issue cannot be resolved during your stay, we will ensure a smooth relocation to a comparable home with no added expense to you.',
+};
+
 const PROMISES = [
   ['dollar', 'Lower prices, every time', 'Pay less than you would anywhere else. No middlemen or platform fees.'],
   ['phone', 'Direct line, real care', 'Book with the team that actually runs the property. Faster answers, better service, real accountability.'],
@@ -603,10 +609,13 @@ export function renderProperty(site, d) {
       '<p class="muted small">The exact address is shared after booking.</p></section>'
     : '';
 
-  const promise = '<section class="psec wide" id="promise"><h2>Our promise to you</h2><div class="promise">' +
+  const promise = '<section class="psec wide" id="promise"><h2>Our promise to you</h2>' +
+    '<div class="guarantee"><span class="ibox">' + ICON.shield + '</span><div><h3>' + GUARANTEE.title + '</h3><p>' + GUARANTEE.text + '</p></div></div>' +
+    '<div class="promise">' +
     PROMISES.map(([i, t]) => '<div>' + ICON[i].replace(/width="24" height="24"/, 'width="22" height="22"') + '<p>' + t + '</p></div>').join('') + '</div>' +
     '<button type="button" class="chip" data-open="promise-modal">Learn more</button></section>' +
     '<dialog class="modal" id="promise-modal" aria-label="Our promise"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Get more when you book direct</strong><span></span></div><div class="modal-body promise-list">' +
+    '<div><span class="ibox">' + ICON.shield + '</span><div><h3>' + GUARANTEE.title + '</h3><p>' + GUARANTEE.text + '</p></div></div>' +
     PROMISES.map(([i, t, s]) => '<div><span class="ibox">' + ICON[i] + '</span><div><h3>' + t + '</h3><p>' + s + '</p></div></div>').join('') + '</div></dialog>';
 
   const rules = [];
@@ -645,6 +654,7 @@ export function renderProperty(site, d) {
       (site.inquiryWidget && p.key ? '<button type="button" class="btn-outline" id="ask">Have a question for us?</button>' : '') +
       '<p class="err" id="book-err" role="alert"></p>' +
       '<p class="small muted center">You won’t be charged yet.</p>' +
+      '<button type="button" class="guar-link" data-open="promise-modal">' + ICON.shield.replace(/width="24" height="24"/, 'width="18" height="18"') + '<span>Protected by <u>The Stay Irish Guarantee</u></span></button>' +
     '</div></aside>';
 
   const tabs = '<nav class="ptabs" id="ptabs" aria-label="Sections" hidden><div class="wrap">' +
