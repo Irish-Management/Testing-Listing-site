@@ -13,6 +13,10 @@
   var note = $('.sort-note');
   var searched = !!$('[data-quote]');
   var unavailable = {}; // homes whose live quote failed for the searched dates
+  if (searched) {
+    var sp = new URL(location.href).searchParams;
+    U.track('search', { search_term: (sp.get('checkin') || '') + ' to ' + (sp.get('checkout') || ''), check_in: sp.get('checkin') || '', check_out: sp.get('checkout') || '', guests: +(sp.get('guests') || 0) || undefined });
+  }
 
   cards.forEach(function (c, i) { c.dataset.order = i; });
   function num(c, k) { var v = c.dataset[k]; return v === '' || v == null ? null : +v; }

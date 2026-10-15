@@ -8,6 +8,8 @@
     days: {}, loaded: false, quoteSeq: 0,
   };
   var minDate = U.addDays(U.today(), U.leadDays);
+  var lastQuote = null, trackedQuote = '';
+  U.track('view_item', { currency: 'USD', items: [{ item_id: String(boot.id), item_name: boot.name }] });
 
   // ---- photos, description, share, section tabs ----
   var photosModal = $('#photos-modal');
@@ -160,6 +162,12 @@
       if (seq !== state.quoteSeq) return;
       if (!res.ok) { unavailable(res.j.error || 'Those dates are not available.'); return; }
       var q = res.j, n = U.nights(state.arrival, state.departure);
+      lastQuote = { value: q.total, nights: n };
+      var qKey = state.arrival + '|' + state.departure + '|' + state.guests;
+      if (qKey !== trackedQuote) {
+        trackedQuote = qKey;
+        U.track('view_quote', { currency: 'USD', value: q.total, nights: n, guests: state.guests, check_in: state.arrival, check_out: state.departure, items: [{ item_id: String(boot.id), item_name: boot.name }] });
+      }
       setMode('priced');
       el.price.innerHTML = '<b>' + U.money(q.beforeTaxes) + '</b>for ' + U.plural(n, 'night') + ' (before taxes)';
       el.body.innerHTML = '<details class="pd"><summary>Price details</summary><div class="lines">' +
@@ -286,7 +294,13 @@
     fetch('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
-        if (res.ok && res.j.paymentUrl) { location.href = res.j.paymentUrl; return; }
+        if (res.ok && res.j.paymentUrl) {
+          var go = U.decorate(res.j.paymentUrl);
+          // Leave for checkout once the event is sent (at most about a second).
+          U.track('reserve_click', { currency: 'USD', value: lastQuote ? lastQuote.value : undefined, nights: lastQuote ? lastQuote.nights : undefined, guests: state.guests, items: [{ item_id: String(boot.id), item_name: boot.name }] },
+            function () { location.href = go; });
+          return;
+        }
         err.textContent = res.j.error || 'We could not open checkout. Please try again.';
         reset();
       })
@@ -321,6 +335,7 @@
   if (ask && askModal) {
     ask.addEventListener('click', function () {
       askModal.showModal();
+      U.track('inquiry_open', { items: [{ item_id: String(boot.id), item_name: boot.name }] });
       if (window.OwnerRez && window.OwnerRez.loadWidget) { loadAsk(); return; }
       if (document.getElementById('or-widget-js')) return;
       // We create the widget ourselves (loadAsk) so it gets the prefill values.

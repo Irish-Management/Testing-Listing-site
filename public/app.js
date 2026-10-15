@@ -64,6 +64,46 @@
     b.addEventListener('click', function () { if (U.isOpen(f)) U.closePop(); else U.showPop(f, b); });
   });
 
+  // ---- tracking: events go to GA4 (and GTM triggers) only when the page loaded the tags ----
+  // done (optional) runs once GA4 has sent the event, or after 1 second, so the guest
+  // is never held up; use it before leaving the page.
+  U.track = function (name, params, done) {
+    var called = false, finish = function () { if (!called) { called = true; if (done) done(); } };
+    if (typeof window.gtag !== 'function') { finish(); return; }
+    params = params || {};
+    if (done) { params.event_callback = finish; params.event_timeout = 1000; setTimeout(finish, 1200); }
+    try { window.gtag('event', name, params); } catch (e) { finish(); }
+  };
+  // Carry the GA4 visit to OwnerRez's checkout: the GA4 linker adds its _gl parameter to
+  // links for app.ownerrez.com when they are pressed, so press a hidden link and read it back.
+  U.decorate = function (url) {
+    if (typeof window.gtag !== 'function') return url;
+    try {
+      var a = document.createElement('a');
+      a.href = url; a.style.display = 'none';
+      document.body.appendChild(a);
+      a.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      var out = a.href; a.remove();
+      return out;
+    } catch (e) { return url; }
+  };
+  // Calls, texts, and emails from any page.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="tel:"], a[href^="sms:"], a[href^="mailto:"]');
+    if (a) U.track('contact_click', { method: a.protocol.replace(':', '') === 'mailto' ? 'email' : a.protocol.replace(':', ''), link_url: location.pathname });
+  });
+  // Thank-you page: OwnerRez's booking, looked up by the server.
+  var conv = $('#conversion');
+  if (conv) {
+    try {
+      var b = JSON.parse(conv.textContent);
+      U.track('booking_complete', {
+        transaction_id: b.id, value: b.value, currency: b.currency,
+        items: [{ item_id: String(b.propertyId), item_name: b.propertyName, quantity: b.nights || 1 }],
+      });
+    } catch (e) { /* ignore */ }
+  }
+
   // ---- photo carousels on cards ----
   U.initCarousels = function (root) {
     $$('[data-carousel]', root).forEach(function (c) {

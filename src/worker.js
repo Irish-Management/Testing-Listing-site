@@ -571,6 +571,7 @@ function site(env, url) {
     inquiryWidget: (env.INQUIRY_WIDGET_ID || '').trim(),
     newsletterForm: /^[a-f0-9]{24}$/.test((env.NEWSLETTER_FORM_ID || '').trim()) ? env.NEWSLETTER_FORM_ID.trim() : '',
     newsletterPopup: /^[a-f0-9]{24}$/.test((env.NEWSLETTER_POPUP_ID || '').trim()) ? env.NEWSLETTER_POPUP_ID.trim() : '',
+    track: null, // set per request in route() when tracking is on
   };
 }
 
@@ -650,6 +651,44 @@ async function handleBook(env, ctx, request, url) {
   }
 }
 
+// Tracking tags for this request: on for the production domain, or with the test cookie.
+function trackingConfig(env, s, testCookie) {
+  if (!s.indexable && !testCookie) return null;
+  const pick = (v, re) => { v = String(v || '').trim(); return re.test(v) ? v : ''; };
+  const t = {
+    gtm: pick(env.GTM_ID, /^GTM-[A-Z0-9]{4,12}$/),
+    ga4: pick(env.GA4_ID, /^G-[A-Z0-9]{4,14}$/),
+    clarity: pick(env.CLARITY_ID, /^[a-z0-9]{6,14}$/),
+    debug: !s.indexable, // test visits show up in GA4 DebugView
+  };
+  return t.gtm || t.ga4 || t.clarity ? t : null;
+}
+
+// OwnerRez sends guests to /thank-you?bookingId=ORB123456 after they pay (20 second
+// countdown on its confirmation page). Look the booking up so the page can report the
+// conversion with its real value. Only bookings made in the last 6 hours count, so old
+// or guessed IDs reveal nothing.
+async function thankYouBooking(env, ctx, url) {
+  const raw = url.searchParams.get('bookingId') || url.searchParams.get('bookingid') || '';
+  const m = raw.match(/^(?:ORB)?(\d{4,12})$/i);
+  if (!m || !env.OWNERREZ_TOKEN) return null;
+  try {
+    const b = await or(env, '/v2/bookings/' + m[1]);
+    if (!b || b.type !== 'booking' || b.is_block) return null;
+    if (!b.booked_utc || Date.now() - Date.parse(b.booked_utc) > 6 * 3600 * 1000) return null;
+    const props = await getProperties(env, ctx).catch(() => []);
+    const p = props.find((x) => x.id === b.property_id);
+    return {
+      id: 'ORB' + b.id, value: Number(b.total_amount) || 0, currency: b.currency_code || 'USD',
+      propertyId: b.property_id, propertyName: p ? p.title : '',
+      nights: b.arrival && b.departure ? Math.round((Date.parse(b.departure) - Date.parse(b.arrival)) / 864e5) : 0,
+    };
+  } catch (e) {
+    console.error('thank-you lookup', e && e.status, e && e.message);
+    return null;
+  }
+}
+
 function homeFacts(homes) {
   return {
     total: homes.length,
@@ -711,10 +750,23 @@ async function route(request, env, ctx) {
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const s = site(env, url);
 
+  // Tracking test switch for the workers.dev address: ?track=on sets a one-day cookie,
+  // ?track=off clears it. On the production domain tracking is always on.
+  const trackParam = url.searchParams.get('track');
+  if ((trackParam === 'on' || trackParam === 'off') && request.method === 'GET') {
+    url.searchParams.delete('track');
+    return new Response(null, { status: 302, headers: {
+      Location: url.pathname + url.search,
+      'Set-Cookie': 'im_track=' + (trackParam === 'on' ? '1; Max-Age=86400' : '; Max-Age=0') + '; Path=/; SameSite=Lax; Secure',
+      'Cache-Control': 'no-store',
+    } });
+  }
+  s.track = trackingConfig(env, s, /(?:^|;\s*)im_track=1(?:;|$)/.test(request.headers.get('Cookie') || ''));
+
   if (path === '/robots.txt') return text(robotsTxt(s));
   if (path === '/terms') return html(renderTerms(s));
   if (path === '/privacy-policy' || path === '/privacy') return html(renderPrivacy(s));
-  if (path === '/thank-you') return html(renderThanks(s));
+  if (path === '/thank-you') return html(renderThanks(s, await thankYouBooking(env, ctx, url)));
 
   if (!env.OWNERREZ_TOKEN) {
     return html(renderError(s, 'Setup needed', 'Add the OWNERREZ_TOKEN secret to finish connecting this site to OwnerRez.'), 500);

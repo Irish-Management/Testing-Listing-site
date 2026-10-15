@@ -94,6 +94,35 @@ These follow OwnerRez's published API docs, but couldn't be tested against your 
    Reserve creates a quote and sends the guest to OwnerRez's payment page, where they enter
    their name, email, and phone (OwnerRez does not pre-fill that page).
 
+## Tracking (Google Analytics 4, Google Tag Manager, Clarity)
+
+The same accounts as the WordPress site, set in `wrangler.toml`: `GTM_ID`, `GA4_ID`, `CLARITY_ID`.
+
+- Tags load only on the production domain (`SITE_URL`). To test on the workers.dev address, open any
+  page with `?track=on` (sets a one-day cookie; `?track=off` clears it). Test visits are marked
+  `debug_mode`, so they show in GA4 DebugView.
+- Site events are sent with `gtag('event', ...)`. GA4 receives them directly, and GTM can use them
+  as Custom Event triggers (for Google Ads or Meta tags).
+- The GA4 linker adds `_gl` to the OwnerRez checkout link, so the visit carries over to
+  app.ownerrez.com. In GA4 also add both domains under Admin > Data streams > Configure tag
+  settings > Configure your domains.
+
+| Event | When | Main parameters |
+|---|---|---|
+| `search` | Search results with dates | `check_in`, `check_out`, `guests` |
+| `view_item` | A home's page opens | `items` (home ID and name) |
+| `view_quote` | A price is shown for chosen dates | `value` (total), `nights`, `guests`, `items` |
+| `reserve_click` | Reserve is clicked, just before OwnerRez checkout | `value`, `nights`, `guests`, `items` |
+| `inquiry_open` | "Have a question for us?" is opened | `items` |
+| `contact_click` | A call, text, or email link is clicked | `method` (tel, sms, email) |
+| `booking_complete` | Guest returns to `/thank-you` after paying | `transaction_id` (ORB...), `value`, `items` |
+
+OwnerRez itself sends the main booking conversion from its checkout (Settings > Advanced Tools >
+Analytics Tracking): GA4 `begin_checkout` and `purchase`, and the Meta Pixel `InitiateCheckout` and
+`Purchase`. `booking_complete` is a backup with a different name, so it never double counts the
+purchase. It only fires for guests who wait for (or click) OwnerRez's 20 second redirect, and only for
+bookings made in the last 6 hours.
+
 ## Search engines and AI assistants
 
 - Every page has a canonical URL, Open Graph and Twitter tags, and schema.org JSON-LD: the business

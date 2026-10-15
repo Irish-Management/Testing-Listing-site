@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '42'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '44'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -188,6 +188,23 @@ function orgSchema(site) {
   };
 }
 
+// Analytics and ad tags (Google Analytics 4, Google Tag Manager, Microsoft Clarity), the same
+// accounts the WordPress site used. site.track is null unless tracking is on for this request
+// (production domain, or the ?track=on test switch). Site events go through gtag('event'),
+// which GA4 receives directly and GTM can use as custom event triggers. The GA4 linker
+// carries the visit over to OwnerRez's checkout on app.ownerrez.com.
+function trackingHead(site) {
+  const t = site.track;
+  if (!t) return '';
+  const ga4Config = { linker: { domains: ['app.ownerrez.com'] } };
+  if (t.debug) ga4Config.debug_mode = true;
+  return '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());' +
+      (t.ga4 ? 'gtag("config",' + json(t.ga4) + ',' + json(ga4Config) + ');' : '') + '</script>' +
+    (t.ga4 ? '<script async src="https://www.googletagmanager.com/gtag/js?id=' + t.ga4 + '"></script>' : '') +
+    (t.gtm ? '<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({"gtm.start":new Date().getTime(),event:"gtm.js"});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!="dataLayer"?"&l="+l:"";j.async=true;j.src="https://www.googletagmanager.com/gtm.js?id="+i+dl;f.parentNode.insertBefore(j,f);})(window,document,"script","dataLayer",' + json(t.gtm) + ');</script>' : '') +
+    (t.clarity ? '<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",' + json(t.clarity) + ');</script>' : '');
+}
+
 function layout(site, title, body, opts = {}) {
   const desc = opts.description || 'Notre Dame vacation rentals, booked direct with Irish Management. Stay minutes from campus and Notre Dame Stadium and skip the extra fees.';
   const canonical = opts.canonical ? site.origin + opts.canonical : '';
@@ -211,7 +228,9 @@ function layout(site, title, body, opts = {}) {
     '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&display=swap">' +
     (opts.map ? '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">' : '') +
     '<link rel="stylesheet" href="/site.css?v=' + V + '">' +
+    trackingHead(site) +
     '</head><body class="' + (opts.bodyClass || '') + '"' + (site.newsletterPopup ? ' data-flodesk-popup="' + site.newsletterPopup + '"' : '') + '>' +
+    (site.track && site.track.gtm ? '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=' + site.track.gtm + '" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' : '') +
     '<a class="skip" href="#main">Skip to content</a>' +
     (opts.textBar && site.sms ? '<div class="textbar"><a href="sms:' + esc(site.sms) + '">Have questions? Text us</a></div>' : '') +
     header(site, opts) +
@@ -668,7 +687,7 @@ export function renderProperty(site, d) {
       .filter((t) => t.length < 3 || t[2]).map(([id, label]) => '<a href="#' + id + '">' + label + '</a>').join('') + '</div></nav>';
 
   const boot = {
-    id: p.id, maxGuests: p.maxGuests || 16, maxPets: p.maxPets || 0,
+    id: p.id, name: p.title, maxGuests: p.maxGuests || 16, maxPets: p.maxPets || 0,
     arrival: d.stay.arrival, departure: d.stay.departure, guests: d.guests, pets: d.pets || 0,
   };
 
@@ -909,9 +928,11 @@ export function renderPrivacy(site) {
     '<h2>10. Changes to This Privacy Policy</h2><p>We may update this Privacy Policy from time to time. Material changes will be communicated through the site or by email where appropriate.</p>', '/privacy-policy');
 }
 
-export function renderThanks(site) {
+export function renderThanks(site, booking) {
+  // booking (from the OwnerRez lookup) feeds the booking_complete event in app.js.
   return layout(site, 'Reservation received | ' + site.name,
-    '<div class="wrap centerpage"><h1>Your reservation is in</h1><p>Check your email for your confirmation. We will send check-in details and your door code before you arrive.</p><a class="chip" href="/">Back to all stays</a></div>', { noindex: true });
+    '<div class="wrap centerpage"><h1>Your reservation is in</h1><p>Check your email for your confirmation. We will send check-in details and your door code before you arrive.</p><a class="chip" href="/">Back to all stays</a></div>' +
+    (booking ? '<script type="application/json" id="conversion">' + json(booking) + '</script>' : ''), { noindex: true });
 }
 
 export function renderNotFound(site) {

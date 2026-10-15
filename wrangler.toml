@@ -34,6 +34,11 @@ INQUIRY_WIDGET_ID = "ea48066e233740ce80c27dccc478dfc3"
 NEWSLETTER_FORM_ID = "669da5833368e6e6407a0b26"
 # Flodesk popup form (its timing and triggers are set in Flodesk; blank turns it off)
 NEWSLETTER_POPUP_ID = "67bcf65dbef24ff5bc197f58"
+# Tracking. Loads only on the production domain (SITE_URL), or on the test address after
+# visiting any page with ?track=on (turn off with ?track=off). Blank turns a tag off.
+GTM_ID = "GTM-WFMWHFKJ"
+GA4_ID = "G-MHD2HEFT77"
+CLARITY_ID = "omaz9dir7c"
 # Properties whose name contains any of these (comma separated) are hidden from the site.
 EXCLUDE_NAME_CONTAINS = "Home Watch"
 # Properties with any of these OwnerRez tags (comma separated) are hidden from the site.
