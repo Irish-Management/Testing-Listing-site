@@ -2,7 +2,7 @@
 
 A guest-facing booking site that runs on Cloudflare Workers and pulls everything live from OwnerRez:
 properties, photos, descriptions, amenities, availability, and full pricing with fees and taxes.
-Guests pick dates, see the real total, enter their name and email, and are sent to OwnerRez's
+Guests pick dates, see the real total, and are sent straight to OwnerRez's
 secure payment page to pay and sign the rental agreement. After booking they return to /thank-you.
 
 No booking platform fee. Your OwnerRez token stays on the server and is never sent to browsers.
@@ -80,7 +80,8 @@ These follow OwnerRez's published API docs, but couldn't be tested against your 
 3. **Date search on the home page.** Search a weekend you know is booked at one home and confirm
    that home drops out.
 4. **Full booking.** Book a cheap stay with your own card, then cancel and refund it in OwnerRez.
-   Each booking attempt creates a guest record in OwnerRez.
+   Reserve creates a quote and sends the guest to OwnerRez's payment page, where they enter
+   their name, email, and phone (OwnerRez does not pre-fill that page).
 
 ## Limits and costs
 
@@ -91,5 +92,4 @@ These follow OwnerRez's published API docs, but couldn't be tested against your 
 ## Good next steps
 
 - Add Cloudflare Turnstile to the guest form to block bots.
-- Look up existing guests by email before creating a new one, to avoid duplicates.
 - Add Google Analytics or a Meta pixel in `layout()` in `src/pages.js`.

@@ -311,13 +311,7 @@ p{margin:0}
 details.pd summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--ink);text-decoration:underline;list-style:none}
 details.pd summary::-webkit-details-marker{display:none}
 .berr{color:#b42318;font-size:14px;margin-top:4px}
-.guest-form{display:flex;flex-direction:column;gap:10px;margin-top:12px}
-.guest-form .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.guest-form label{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted)}
-.guest-form input{height:46px;border:1px solid var(--line);border-radius:8px;padding:0 12px;font:inherit;color:var(--ink);min-width:0}
-.guest-form input:focus{outline:2px solid var(--ink);outline-offset:-1px}
 .err{color:#b42318;font-size:14px;min-height:0}
-.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .bookcol .pop.dp{right:0}
 
 /* modals */

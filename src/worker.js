@@ -482,7 +482,6 @@ function withSnapshot(props, snap) {
 // ---------- Helpers ----------
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function isDate(s) { return typeof s === 'string' && DATE_RE.test(s) && !isNaN(Date.parse(s + 'T00:00:00Z')); }
 function addDays(s, n) { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
@@ -573,23 +572,18 @@ function searchParams(url) {
 // ---------- Routes ----------
 
 async function handleBook(env, ctx, request, url) {
+  // Only accept checkout requests from our own pages, so other sites cannot create quotes.
+  const origin = request.headers.get('Origin');
+  if (origin && origin !== url.origin && origin !== site(env, url).origin) return json({ error: 'Please start checkout from our website.' }, 403);
   const b = await request.json().catch(() => null);
   if (!b) return json({ error: 'Send the booking details as JSON.' }, 400);
-  // Hidden spam-trap field that only bots fill in. ("company" is ignored now: browser autofill filled it.)
-  if (b.hp_check) return json({ error: 'We could not send that request. Please refresh the page and try again, or text us to book.' }, 400);
 
   const id = int(b.property_id, 0);
   const adults = int(b.adults, 0);
   const children = Math.max(0, int(b.children, 0));
   const pets = Math.max(0, int(b.pets, 0));
-  const first = String(b.first_name || '').trim().slice(0, 60);
-  const last = String(b.last_name || '').trim().slice(0, 60);
-  const email = String(b.email || '').trim().slice(0, 120);
-  const phone = String(b.phone || '').trim().slice(0, 30);
 
   if (!validStay(b.arrival, b.departure)) return json({ error: 'Choose valid check-in and checkout dates.' }, 400);
-  if (!first || !last) return json({ error: 'Enter your first and last name.' }, 400);
-  if (!EMAIL_RE.test(email)) return json({ error: 'Enter a valid email address.' }, 400);
 
   const props = await getProperties(env, ctx);
   const prop = props.find((p) => p.id === id);
@@ -600,21 +594,12 @@ async function handleBook(env, ctx, request, url) {
   if (pets > (prop.maxPets || 0)) return json({ error: prop.maxPets ? 'This home allows up to ' + prop.maxPets + ' pets.' : 'This home does not allow pets.' }, 400);
 
   try {
-    const guest = await or(env, '/v2/guests', {
-      method: 'POST',
-      body: {
-        first_name: first,
-        last_name: last,
-        email_addresses: [{ address: email, is_default: true, type: 'home' }],
-        phones: phone ? [{ number: phone, is_default: true, type: 'mobile' }] : [],
-      },
-    });
-    if (!guest || !guest.id) return json({ error: 'We could not start your reservation. Please contact us to book.' }, 502);
-
+    // No guest record here: OwnerRez's payment page asks for the guest's name, email, and
+    // phone itself (it does not pre-fill them), so guests enter their details once, there.
     const quote = await or(env, '/v2/quotes', {
       method: 'POST',
       body: {
-        property_id: id, guest_id: guest.id,
+        property_id: id,
         arrival: b.arrival, departure: b.departure, adults, children, pets,
         generate_charges: true, validate_rules: true,
         redirect_after_booking_url: site(env, url).origin + '/thank-you',
@@ -623,6 +608,7 @@ async function handleBook(env, ctx, request, url) {
     if (!quote || !quote.payment_form) return json({ error: 'We could not open checkout. Please contact us to book.' }, 502);
     return json({ paymentUrl: quote.payment_form });
   } catch (e) {
+    console.error('checkout', e && e.status, e && e.message);
     return json({ error: friendlyError(e) }, e instanceof OrError && e.status < 500 && e.status !== 401 ? 400 : 502);
   }
 }

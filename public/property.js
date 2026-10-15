@@ -88,7 +88,7 @@
   var el = {
     title: $('#b-title'), price: $('#b-price'), direct: $('#b-direct'), body: $('#b-body'),
     fin: $('#f-in'), fout: $('#f-out'), guests: $('#f-guests'), reserve: $('#reserve'), action: $('#b-action'),
-    form: $('#guest-form'), gbtn: $('#g-btn'), gpop: $('#g-pop'),
+    gbtn: $('#g-btn'), gpop: $('#g-pop'),
   };
   var fields = $$('[data-field]');
 
@@ -127,7 +127,7 @@
     el.reserve.hidden = mode !== 'priced';
     el.reserve.disabled = false;
     el.action.hidden = mode === 'priced' || mode === 'loading';
-    if (mode !== 'priced') el.form.hidden = true;
+    if (mode !== 'priced') $('#book-err').textContent = '';
     fields.forEach(function (f) { f.classList.toggle('err-field', mode === 'unavailable'); });
   }
 
@@ -276,33 +276,27 @@
     });
   });
 
-  // ---- reserve and checkout ----
+  // ---- reserve: straight to OwnerRez's secure checkout, where guests enter their details ----
   el.reserve.addEventListener('click', function () {
-    el.form.hidden = false;
-    el.reserve.hidden = true;
-    el.form.querySelector('input').focus();
-  });
-  el.form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var f = el.form, err = $('#book-err'), btn = $('#checkout');
+    var err = $('#book-err'), btn = el.reserve;
     var data = { property_id: boot.id, arrival: state.arrival, departure: state.departure, adults: state.guests, children: 0, pets: state.pets };
-    ['first_name', 'last_name', 'email', 'phone', 'hp_check'].forEach(function (k) { data[k] = f.elements[k].value.trim(); });
-    if (!data.first_name || !data.last_name) { err.textContent = 'Enter your first and last name.'; return; }
-    if (!data.email || !f.elements.email.checkValidity()) { err.textContent = 'Enter a valid email address.'; return; }
     err.textContent = '';
     btn.disabled = true; btn.textContent = 'Opening secure checkout';
+    var reset = function () { btn.disabled = false; btn.textContent = 'Reserve'; };
     fetch('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         if (res.ok && res.j.paymentUrl) { location.href = res.j.paymentUrl; return; }
         err.textContent = res.j.error || 'We could not open checkout. Please try again.';
-        btn.disabled = false; btn.textContent = 'Continue to secure checkout';
+        reset();
       })
       .catch(function () {
         err.textContent = 'We could not reach checkout. Check your connection and try again.';
-        btn.disabled = false; btn.textContent = 'Continue to secure checkout';
+        reset();
       });
   });
+  // Coming back with the browser's back button can restore a disabled button; re-enable it.
+  window.addEventListener('pageshow', function () { el.reserve.disabled = false; el.reserve.textContent = 'Reserve'; });
 
   // ---- questions: OwnerRez inquiry widget, loaded the first time it is opened ----
   var ask = $('#ask'), askModal = $('#ask-modal');
