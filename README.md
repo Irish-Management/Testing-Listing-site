@@ -26,7 +26,7 @@ homes and a link to search each weekend. Edit the list in `src/events.js`; past 
 their own.
 
 Collections are defined in `COLLECTIONS` in `src/pages.js`. Each is a filter on the all-homes
-page (quick buttons and a Collection section in the Filters panel) that matches homes carrying
+page (a Collection section in the Filters panel) that matches homes carrying
 its OwnerRez tag; to add a home to a collection, add the tag in OwnerRez.
 
 The design and copy match the previous Wander site at listings.irishmgmt.com.

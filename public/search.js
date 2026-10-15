@@ -211,11 +211,6 @@
 
   function applyFilters() {
     var n = 0;
-    $$('.cchip').forEach(function (a) {
-      var on = a.getAttribute('data-col') === applied.collection;
-      a.classList.toggle('on', on);
-      if (on) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
-    });
     cards.forEach(function (c) {
       var ok = matches(c, applied);
       c.classList.toggle('filtered', !ok);
@@ -329,17 +324,6 @@
       modal.close();
     });
   }
-
-  // Collection buttons switch the list in place.
-  $$('.cchip').forEach(function (a) {
-    a.addEventListener('click', function (e) {
-      if (e.metaKey || e.ctrlKey || e.shiftKey) return;
-      e.preventDefault();
-      applied.collection = a.getAttribute('data-col');
-      syncParams({ collection: applied.collection });
-      applyFilters();
-    });
-  });
 
   // First paint: the server already sorted when there are no dates.
   applyFilters();

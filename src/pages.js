@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '18'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '19'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -71,11 +71,6 @@ export const COLLECTIONS = [
 // Collection slugs a home belongs to, from its OwnerRez tags.
 function collectionsOf(p) {
   return COLLECTIONS.filter((c) => (p.tags || []).includes(c.tag.toLowerCase())).map((c) => c.slug);
-}
-
-function collectionChips(active) {
-  return '<nav class="cchips" aria-label="Collections"><a class="cchip' + (active ? '' : ' on') + '" href="/s" data-col="">All homes</a>' +
-    COLLECTIONS.map((c) => '<a class="cchip' + (active === c.slug ? ' on' : '') + '" href="/listings/' + c.slug + '" data-col="' + c.slug + '">' + esc(c.name) + '</a>').join('') + '</nav>';
 }
 
 // ---------- Icons ----------
@@ -340,7 +335,6 @@ export function renderSearch(site, d) {
   const col = q.collection;
   const shownCount = col ? d.props.filter((p) => collectionsOf(p).includes(col.slug)).length : d.props.length;
   const body =
-    '<div class="search-top">' + collectionChips(col ? col.slug : null) + '</div>' +
     '<div class="search-layout"><section class="results">' +
       (d.notice ? '<p class="notice">' + esc(d.notice) + '</p>' : '') +
       '<div class="results-head"><h1 class="eyebrow-h" id="rcount">' + plural(shownCount, 'property', 'properties') + ' available</h1>' +
