@@ -179,7 +179,8 @@
     beds: +url.searchParams.get('beds') || 0,
     baths: +url.searchParams.get('baths') || 0,
     pets: url.searchParams.get('petsok') === '1',
-    amen: (url.searchParams.get('amen') || '').split(',').filter(Boolean),
+    // Drop codes from old links that no longer have a chip (retired filters).
+    amen: (url.searchParams.get('amen') || '').split(',').filter(function (a) { return a && document.querySelector('.fchip[data-amen="' + a.replace(/[^a-z]/g, '') + '"]'); }),
     // The server says which collection the page opened with (a /listings/<slug> address may be a destination instead).
     collection: ($('.results') && $('.results').getAttribute('data-collection')) || '',
   };
@@ -311,7 +312,8 @@
       });
     });
     $('#f-clear').addEventListener('click', function () {
-      draft = { min: null, max: null, beds: 0, baths: 0, pets: false, amen: [], collection: '' };
+      // There are no collection chips, so Clear all keeps the collection page's own collection.
+      draft = { min: null, max: null, beds: 0, baths: 0, pets: false, amen: [], collection: $('.fchip[data-col]', modal) ? '' : draft.collection };
       paintPrice(); paintDraft();
     });
     $('#f-apply').addEventListener('click', function () {

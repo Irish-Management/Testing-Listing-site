@@ -25,9 +25,11 @@ Pages: `/` (home), `/s` (all homes with map; accepts `?checkin=&checkout=&guests
 homes and a link to search each weekend. Edit the list in `src/events.js`; past events drop off on
 their own.
 
-Collections are defined in `COLLECTIONS` in `src/pages.js`. Each is a filter on the all-homes
-page (a Collection section in the Filters panel) that matches homes carrying
-its OwnerRez tag; to add a home to a collection, add the tag in OwnerRez.
+Collections are defined in `COLLECTIONS` in `src/pages.js`. Each `/listings/<collection>` page shows the
+homes carrying its OwnerRez tag; to add a home to a collection, add the tag in OwnerRez.
+
+Search filters are defined in `FILTER_SECTIONS` in `src/pages.js` and match each home's OwnerRez amenity
+names. "Walk to the stadium" is set from the home's map location (within about a mile of Notre Dame Stadium).
 
 The design and copy match the previous Wander site at listings.irishmgmt.com.
 

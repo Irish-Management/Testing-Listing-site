@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '40'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '42'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -35,25 +35,27 @@ function paragraphs(text) {
 }
 
 // Amenity filter chips on the all-homes page: [code, label, matches, unless].
-export const AMENITY_FILTERS = [
-  ['parking', 'Free parking', /free parking|driveway|garage parking/i],
-  ['workspace', 'Dedicated workspace', /workspace|desk/i],
-  ['wheelchair', 'Wheelchair accessible', /wheelchair/i, /inaccessible|not accessible|not wheelchair/i],
-  ['fireplace', 'Fireplace', /fireplace/i],
-  ['firepit', 'Fire pit', /fire ?pit/i],
-  ['garage', 'Garage', /garage/i],
-  ['hottub', 'Hot tub', /hot ?tub|jacuzzi/i],
-  ['pool', 'Pool', /pool/i, /pool table|billiard/i],
-  ['gameroom', 'Game room', /game room|pool table|billiard|ping ?pong|foosball|arcade|air hockey/i],
-  ['console', 'Game console', /game console|playstation|xbox|nintendo/i],
-  ['grill', 'Grill', /grill|bbq|barbecue/i],
-  ['washer', 'Washer & dryer', /washer|washing machine|laundry/i],
-  ['ev', 'EV charger', /ev charg|electric vehicle/i],
-  ['balcony', 'Balcony', /balcony/i],
-  ['sauna', 'Sauna', /sauna/i],
-  ['elevator', 'Elevator', /elevator/i],
-  ['kayaks', 'Kayaks', /kayak/i],
+// Filter chips on the search page, by section: [code, label, match, exclude].
+// Codes are matched against each home's OwnerRez amenity names when the snapshot refreshes.
+// 'walk' has no match pattern: the worker sets it from the home's map location (see nearStadium).
+export const FILTER_SECTIONS = [
+  ['Location', [
+    ['walk', 'Walk to the stadium', null],
+  ]],
+  ['Accessibility', [
+    ['nostairs', 'No stairs / single level', /single level|step.?free|wheelchair accessible/i, /not wheelchair|inaccessible|not accessible/i],
+  ]],
+  ['Amenities', [
+    ['pool', 'Pool', /pool/i, /pool table|billiard|pool house|pool bath|carpool|whirlpool/i],
+    ['hottub', 'Hot tub', /hot ?tub|jacuzzi/i],
+    ['gameroom', 'Game room', /game room|pool table|billiard|ping ?pong|foosball|arcade|air hockey|video games|game console|playstation|xbox|nintendo/i],
+    ['firepit', 'Fire pit', /fire ?pit/i],
+    ['grill', 'Grill', /grill|bbq|barbecue/i],
+    ['workspace', 'Dedicated workspace', /workspace|desk/i],
+    ['ev', 'EV charger', /ev charg|electric vehicle/i],
+  ]],
 ];
+export const AMENITY_FILTERS = FILTER_SECTIONS.flatMap(([, list]) => list);
 
 // Tag-driven collections, a quick filter on the all-homes page. /listings/<slug> (the
 // stayirish.com addresses) opens that page with the collection selected.
@@ -449,19 +451,17 @@ export function renderSearch(site, d) {
   }));
   const have = new Set();
   d.props.forEach((p) => (p.amen || []).forEach((a) => have.add(a)));
-  const chips = AMENITY_FILTERS.filter(([code]) => have.has(code));
+  const sections = FILTER_SECTIONS.map(([title, list]) => [title, list.filter(([code]) => have.has(code))]).filter(([, list]) => list.length);
   const stepper = (k, label) => '<div class="step"><span>' + label + '</span><div class="stepper"><button type="button" data-f="' + k + '" data-d="-1" aria-label="Fewer ' + label.toLowerCase() + '">&minus;</button><span id="f-' + k + '">Any</span><button type="button" data-f="' + k + '" data-d="1" aria-label="More ' + label.toLowerCase() + '">+</button></div></div>';
   const filters = '<div class="filters-wrap"><button type="button" class="filters-btn" id="filters-open" aria-haspopup="dialog">' + ICON.sliders + '<span>Filters</span><span class="fcount" id="fcount" hidden></span></button></div>';
   const filterModal = '<dialog class="modal filters-modal" id="filters" aria-label="Filters"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Filters</strong><span></span></div>' +
     '<div class="modal-body">' +
-      (q.dest ? '' : '<section class="fsec"><h3>Collection</h3><div class="chips">' +
-        COLLECTIONS.map((c) => '<button type="button" class="fchip" data-col="' + c.slug + '" aria-pressed="false">' + esc(c.name) + '</button>').join('') + '</div></section>') +
       '<section class="fsec"><h3>' + (q.searched ? 'Total price' : 'Price per night') + '</h3>' +
         '<p class="muted small">' + (q.searched ? 'Rent and fees for your dates, before taxes.' : 'Based on each home\u2019s next available stay, before taxes.') + '</p>' +
         '<div class="hist" id="hist" aria-hidden="true"></div>' +
         '<div class="range"><input type="range" id="pmin" aria-label="Minimum price" step="1"><input type="range" id="pmax" aria-label="Maximum price" step="1"></div>' +
         '<div class="minmax"><label>Minimum<span class="money-in">$<input type="number" id="pmin-n" inputmode="numeric" min="0"></span></label><label>Max<span class="money-in">$<input type="number" id="pmax-n" inputmode="numeric" min="0"></span></label></div></section>' +
-      (chips.length ? '<section class="fsec"><h3>Amenities</h3><div class="chips">' + chips.map(([code, label]) => '<button type="button" class="fchip" data-amen="' + code + '" aria-pressed="false">' + esc(label) + '</button>').join('') + '</div></section>' : '') +
+      sections.map(([title, list]) => '<section class="fsec"><h3>' + title + '</h3>' + (title === 'Location' ? '<p class="muted small">Within about a mile of Notre Dame Stadium.</p>' : '') + '<div class="chips">' + list.map(([code, label]) => '<button type="button" class="fchip" data-amen="' + code + '" aria-pressed="false">' + esc(label) + '</button>').join('') + '</div></section>').join('') +
       '<section class="fsec"><h3>Rooms and beds</h3>' + stepper('beds', 'Bedrooms') + stepper('baths', 'Bathrooms') + '</section>' +
       '<section class="fsec"><h3>Accommodations</h3><label class="toggle"><span>Pets allowed</span><input type="checkbox" id="f-pets" role="switch"><span class="sw" aria-hidden="true"></span></label></section>' +
     '</div><div class="modal-foot"><button type="button" class="linkbtn" id="f-clear">Clear all</button><button type="button" class="btn-dark big" id="f-apply">Show homes</button></div></dialog>';

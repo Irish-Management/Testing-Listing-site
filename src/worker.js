@@ -480,13 +480,22 @@ function amenityCodes(l) {
   const names = [];
   (l.amenities || []).forEach((c) => c.items.forEach((n) => names.push(n)));
   (l.callouts || []).forEach((n) => names.push(n));
-  return AMENITY_FILTERS.filter(([, , re, not]) => names.some((n) => re.test(n) && !(not && not.test(n)))).map(([code]) => code);
+  return AMENITY_FILTERS.filter(([, , re, not]) => re && names.some((n) => re.test(n) && !(not && not.test(n)))).map(([code]) => code);
 }
 
 // Homes outside the South Bend area (e.g. the Florida condo) get their own showcase page and
 // are left out of the South Bend home page, search, map, and Big Weekends counts.
 function destinationOf(p) { return DESTINATIONS.find((d) => d.state === p.state) || null; }
 function local(props) { return props.filter((p) => !destinationOf(p)); }
+
+// "Walk to the stadium" filter: homes within about a mile of Notre Dame Stadium.
+const STADIUM = { lat: 41.6984, lng: -86.2339 };
+function nearStadium(p) {
+  if (p.lat == null || p.lng == null) return false;
+  const r = Math.PI / 180, dLat = (p.lat - STADIUM.lat) * r, dLng = (p.lng - STADIUM.lng) * r;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(STADIUM.lat * r) * Math.cos(p.lat * r) * Math.sin(dLng / 2) ** 2;
+  return 2 * 3958.8 * Math.asin(Math.sqrt(a)) <= 1;
+}
 
 function withSnapshot(props, snap) {
   return props.map((p) => {
@@ -495,7 +504,7 @@ function withSnapshot(props, snap) {
       photos: s.photos && s.photos.length ? s.photos : (p.photo ? [p.photo] : []),
       rating: s.rating || 0,
       reviews: s.reviews || 0,
-      amen: s.amen || [],
+      amen: (s.amen || []).concat(nearStadium(p) ? ['walk'] : []),
       stay: s.stay || null,
     });
   });
