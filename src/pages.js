@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '29'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '30'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -367,6 +367,12 @@ export function renderHome(site, d) {
     '<section class="direct wrap"><h2>Get more when you book direct</h2>' +
       '<p class="direct-sub">Better rates than the booking sites, with a local team behind every stay.</p><div class="direct-grid">' +
       UNIQUES.map(([i, t, s]) => '<div><span class="ibox">' + ICON[i] + '</span><h3>' + t + '</h3><p>' + s + '</p></div>').join('') + '</div></section>' +
+    // Evergreen promo for /listings/big-dates. The "Coming up" line reads src/events.js, so it needs no edits here.
+    '<section class="wrap away bw-promo"><a class="away-card" href="/listings/big-dates"><img src="/img/welcome.jpg" alt="" loading="lazy">' +
+      '<div><p class="sub">Football, Graduation, and More</p><h2>Big Weekends in South Bend</h2>' +
+      '<p class="muted">Game days and graduation book up months ahead. See which homes are still open for every big weekend, and lock in your group’s stay before they’re gone.</p>' +
+      ((d.bigWeekends || []).length ? '<p class="bw-next"><strong>Coming up:</strong> ' + d.bigWeekends.map((e) => esc(e.name.replace(/^Notre Dame (vs\. )?/, '')) + ' (' + shortDate(e.date || e.arrival) + ')').join(', ') + '</p>' : '') +
+      '<span class="btn-dark big">See Big Weekends</span></div></a></section>' +
     (r.count
       ? '<section class="guests wrap"><p class="sub">What Guests Say</p><h2>Trusted by Travelers</h2>' +
         '<p class="big">' + r.average.toFixed(2) + '</p>' + stars(5, 16) + '<p class="count">' + r.count.toLocaleString('en-US') + ' reviews</p>' +
