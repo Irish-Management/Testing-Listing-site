@@ -4,7 +4,7 @@
 
 import {
   renderHome, renderSearch, renderProperty, renderThanks, renderNotFound, renderError,
-  renderReviews, renderManagement, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS, DESTINATIONS, homePath,
+  renderReviews, renderManagement, renderAreaGuide, renderSitemap, renderTerms, renderPrivacy, renderBigDates, AMENITY_FILTERS, COLLECTIONS, DESTINATIONS, homePath,
 } from './pages.js';
 import { EVENTS, EVENT_GROUPS } from './events.js';
 
@@ -713,7 +713,7 @@ function robotsTxt(s) {
 }
 
 function sitemapXml(s, props) {
-  const paths = ['/', '/s', '/listings/big-dates', '/reviews', '/management', '/terms', '/privacy-policy']
+  const paths = ['/', '/s', '/listings/big-dates', '/reviews', '/area-guide', '/management', '/terms', '/privacy-policy']
     .concat(COLLECTIONS.map((c) => '/listings/' + c.slug))
     .concat(DESTINATIONS.filter((d) => props.some((p) => p.state === d.state)).map((d) => '/listings/' + d.slug))
     .concat(props.map(homePath));
@@ -737,6 +737,7 @@ function llmsTxt(s, homes, away, rating) {
     '- Contact: ' + [s.phone && 'phone or text ' + s.phone, s.email && 'email ' + s.email].filter(Boolean).join(', ') + '. 24/7 guest support.\n\n' +
     '## Browse\n\n' +
     '- [All homes near Notre Dame](' + s.origin + '/s): map, filters, and live prices\n' +
+    '- [South Bend area guide](' + s.origin + '/area-guide): where to eat and drink, things to do, and getting around\n' +
     COLLECTIONS.map((c) => '- [' + c.name + '](' + s.origin + '/listings/' + c.slug + ')').join('\n') + '\n' +
     '- [Big Weekends](' + s.origin + '/listings/big-dates): Notre Dame football weekends and graduation, with live availability\n' +
     away.map((a) => '- [' + a.dest.name + '](' + s.origin + '/listings/' + a.dest.slug + '): ' + a.dest.intro).join('\n') + (away.length ? '\n' : '') +
@@ -851,6 +852,11 @@ async function route(request, env, ctx) {
     return html(renderSearch(s, { props: homes, q, notice }));
   }
 
+  if ((path === '/area-guide' || path === '/area') && request.method === 'GET') {
+    const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
+    const homes = local(withSnapshot(props, snap));
+    return html(renderAreaGuide(s, { walkCount: homes.filter((p) => p.amen.includes('walk')).length }));
+  }
   if (path === '/management' && request.method === 'GET') {
     const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
     return html(renderManagement(s, { rating: siteRating(props, snap) }));

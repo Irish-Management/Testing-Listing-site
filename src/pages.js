@@ -1,7 +1,9 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '47'; // bump to make browsers fetch new CSS and JS after a deploy
+import { GUIDE_INTRO, NOTRE_DAME, GUIDE_SECTIONS, GETTING_AROUND, VISIT_SOUTH_BEND } from './guide.js';
+
+const V = '49'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -276,7 +278,7 @@ function header(site, opts) {
       '<nav class="menu" aria-label="Main" hidden>' +
         '<a href="/">Home</a><a href="/s">All homes</a>' +
         '<span class="menu-label">Listings</span>' + COLLECTIONS.map((c) => '<a class="sub" href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a class="sub" href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a class="sub" href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') +
-        '<span class="menu-sep" aria-hidden="true"></span><a href="/reviews">Guest reviews</a><a href="/management">Property management</a>' +
+        '<span class="menu-sep" aria-hidden="true"></span><a href="/reviews">Guest reviews</a><a href="/area-guide">Area guide</a><a href="/management">Property management</a>' +
         (site.sms ? '<a href="sms:' + esc(site.sms) + '">Text us</a>' : '') +
         (site.email ? '<a href="mailto:' + esc(site.email) + '">Email us</a>' : '') +
       '</nav></div>' +
@@ -301,7 +303,7 @@ function footer(site) {
     : '';
   return '<footer class="site-footer">' + signup + contact +
     '<div class="fwrap fgrid"><div><img src="/img/logo.png" alt="' + esc(site.name) + '" width="32" height="32"></div>' +
-      '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') + '</div>' +
+      '<div class="fcols"><div><h2>Listings</h2><a href="/s">All homes</a>' + COLLECTIONS.map((c) => '<a href="/listings/' + c.slug + '">' + esc(c.name) + '</a>').join('') + '<a href="/listings/big-dates">Big Weekends</a>' + DESTINATIONS.map((d) => '<a href="/listings/' + d.slug + '">' + esc(d.name) + '</a>').join('') + '<a href="/area-guide">Area guide</a></div>' +
       '<div><h2>Owners</h2><a href="/management">Property management</a></div>' +
       (social ? '<div><h2>Social</h2>' + social + '</div>' : '') + '</div></div>' +
     '<div class="fbottom"><div class="fwrap"><span>&copy; ' + new Date().getUTCFullYear() + ' ' + esc(site.name) + '</span>' +
@@ -877,8 +879,50 @@ export function renderManagement(site, d) {
   });
 }
 
+// ---------- Area guide ----------
+
+export function renderAreaGuide(site, d) {
+  const ext = (url, label) => '<a class="g-link" href="' + esc(url) + '" target="_blank" rel="noopener">' + label + ' <span aria-hidden="true">&#8599;</span></a>';
+  const place = (pl) => '<article class="g-card' + (pl.photo ? ' has-photo' : '') + '">' +
+    (pl.photo ? '<img src="' + pl.photo + '" alt="' + esc(pl.name) + '" loading="lazy">' : '') +
+    '<div><h3>' + esc(pl.name) + '</h3>' + (pl.area ? '<p class="g-area">' + esc(pl.area) + '</p>' : '') +
+    '<p>' + esc(pl.text) + '</p>' + ext(pl.url, 'Website') + '</div></article>';
+  const jump = [['notre-dame', 'Notre Dame']].concat(GUIDE_SECTIONS.map((x) => [x.id, x.title])).concat([['getting-around', 'Getting around']]);
+  const walk = d.walkCount ? '<a class="chip" href="/s?amen=walk">See ' + d.walkCount + ' homes within walking distance</a>' : '<a class="chip" href="/s">Browse homes</a>';
+  const ga = GETTING_AROUND;
+  const body =
+    '<section class="band g-hero" style="--bg:url(/img/guide/hero-river.jpg)"><div class="band-in">' +
+      '<p class="sub">Area Guide</p><h1>Welcome to South Bend</h1><p class="g-lead">' + esc(GUIDE_INTRO) + '</p></div></section>' +
+    '<nav class="g-jump" aria-label="Guide sections"><div class="wrap">' + jump.map(([id, t]) => '<a href="#' + id + '">' + esc(t) + '</a>').join('') + '</div></nav>' +
+    '<div class="wrap g-body">' +
+      '<section class="g-sec" id="notre-dame"><p class="g-eyebrow">The reason you’re here</p><h2>Notre Dame</h2>' +
+        '<div class="g-nd">' + NOTRE_DAME.map((x) => '<article class="g-nd-card">' + (x.photo ? '<img src="' + x.photo + '" alt="' + esc(x.name) + '" loading="lazy">' : '') +
+          '<div><h3>' + esc(x.name) + '</h3><p>' + esc(x.text) + '</p>' + ext(x.url, 'Learn more') + '</div></article>').join('') + '</div>' +
+        '<div class="g-cta-row">' + walk + '<a class="chip" href="/listings/big-dates">Football and graduation weekends</a></div></section>' +
+      GUIDE_SECTIONS.map((x) => '<section class="g-sec" id="' + x.id + '">' +
+        '<div class="g-sec-head' + (x.photo ? ' with-photo' : '') + '"><div><p class="g-eyebrow">' + esc(x.title) + '</p><h2>' + esc(x.heading) + '</h2><p class="muted">' + esc(x.intro) + '</p></div>' +
+          (x.photo ? '<img src="' + x.photo + '" alt="" loading="lazy">' : '') + '</div>' +
+        '<div class="g-grid' + (x.places.some((pl) => pl.photo) ? ' photos' : '') + '">' + x.places.map(place).join('') + '</div></section>').join('') +
+      '<section class="g-sec" id="getting-around"><p class="g-eyebrow">Getting around</p><h2>Rides to campus, the airport, and dinner</h2>' +
+        '<div class="g-ride"><div><h3>' + esc(ga.name) + '</h3><p>' + esc(ga.text) + '</p>' + ext(ga.url, 'Book at rides2u.com') + '</div>' +
+          '<div class="g-code"><p>Irish Management guests save 10%</p><button type="button" class="g-copy" data-copy="' + esc(ga.code) + '"><strong>' + esc(ga.code) + '</strong><span>Copy code</span></button></div></div>' +
+        '<div class="g-more"><div><h3>' + esc(VISIT_SOUTH_BEND.name) + '</h3><p class="muted">' + esc(VISIT_SOUTH_BEND.text) + '</p></div>' + ext(VISIT_SOUTH_BEND.url, 'Discover more') + '</div></section>' +
+    '</div>' +
+    '<section class="band cta" style="--bg:url(/img/patio.jpg)"><div class="band-in"><p class="sub">Stay close to it all</p><h2>Find your South Bend home base</h2><a class="chip" href="/s">Browse Homes</a></div></section>';
+
+  const places = GUIDE_SECTIONS.flatMap((x) => x.places.map((pl) => ({ '@type': x.kind, name: pl.name, url: pl.url, description: pl.text })));
+  const schema = [{
+    '@context': 'https://schema.org', '@type': 'ItemList', name: 'South Bend area guide | ' + site.name,
+    itemListElement: places.map((item, i) => ({ '@type': 'ListItem', position: i + 1, item })),
+  }];
+  return layout(site, 'South Bend Area Guide: Where to Eat, Drink, and Explore | ' + site.name, body, {
+    canonical: '/area-guide', image: '/img/guide/stadium.jpg', schema, bodyClass: 'guidepage',
+    description: 'Our local guide to South Bend and Notre Dame: the best restaurants, bars, ice cream, things to do, and how to get around, from the Irish Management team.',
+  });
+}
+
 export function renderSitemap(site, d) {
-  const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li>' + COLLECTIONS.map((c) => '<li><a href="/listings/' + c.slug + '">' + esc(c.name) + '</a></li>').join('') + '<li><a href="/listings/big-dates">Big Weekends</a></li><li><a href="/management">Property management</a></li><li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
+  const body = '<section class="wrap legal"><h1>Sitemap</h1><ul><li><a href="/">Home</a></li><li><a href="/s">All homes</a></li>' + COLLECTIONS.map((c) => '<li><a href="/listings/' + c.slug + '">' + esc(c.name) + '</a></li>').join('') + '<li><a href="/listings/big-dates">Big Weekends</a></li><li><a href="/area-guide">Area guide</a></li><li><a href="/management">Property management</a></li><li><a href="/reviews">Guest reviews</a></li><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy-policy">Privacy Policy</a></li></ul>' +
     '<h2>Homes</h2><ul>' + d.props.map((p) => '<li><a href="' + esc(propHref(p)) + '">' + esc(p.title) + '</a></li>').join('') + '</ul></section>';
   return layout(site, 'Sitemap | ' + site.name, body, { canonical: '/sitemap' });
 }

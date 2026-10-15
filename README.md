@@ -21,6 +21,9 @@ Pages: `/` (home), `/s` (all homes with map; accepts `?checkin=&checkout=&guests
 `/listings/<collection>` (opens `/s` with a collection selected: `unique`, `large-groups`,
 `walking-campus`, `small-groups`), `/reviews`, `/terms`, `/privacy-policy`, `/sitemap`, `/thank-you`.
 
+`/area-guide` is the South Bend area guide (restaurants, bars, ice cream, things to do, Notre Dame,
+Rides2U). Edit its places in `src/guide.js`; photos are in `public/img/guide/`.
+
 `/listings/big-dates` shows upcoming big weekends (football, graduation) with live counts of open
 homes and a link to search each weekend. Edit the list in `src/events.js`; past events drop off on
 their own.

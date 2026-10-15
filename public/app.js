@@ -104,6 +104,15 @@
     } catch (e) { /* ignore */ }
   }
 
+  // ---- copy buttons (area guide ride code) ----
+  $$('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var label = $('span', b), done = function () { if (label) { label.textContent = 'Copied!'; setTimeout(function () { label.textContent = 'Copy code'; }, 2000); } };
+      if (navigator.clipboard) navigator.clipboard.writeText(b.getAttribute('data-copy')).then(done, function () {});
+      U.track('copy_code', { code: b.getAttribute('data-copy') });
+    });
+  });
+
   // ---- photo carousels on cards ----
   U.initCarousels = function (root) {
     $$('[data-carousel]', root).forEach(function (c) {
