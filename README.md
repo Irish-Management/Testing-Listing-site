@@ -18,10 +18,11 @@ No booking platform fee. Your OwnerRez token stays on the server and is never se
 
 Pages: `/` (home), `/s` (all homes with map; accepts `?checkin=&checkout=&guests=&pets=&bedrooms=`),
 `/property/<id>/<slug>` (also accepts `?checkin=2027-01-01&checkout=2027-01-08&guests=6`),
-`/listings/<collection>` (tag-driven collections: `unique`, `large-groups`, `walking-campus`,
-`small-groups`), `/reviews`, `/terms`, `/privacy-policy`, `/sitemap`, `/thank-you`.
+`/listings/<collection>` (opens `/s` with a collection selected: `unique`, `large-groups`,
+`walking-campus`, `small-groups`), `/reviews`, `/terms`, `/privacy-policy`, `/sitemap`, `/thank-you`.
 
-Collections are defined in `COLLECTIONS` in `src/pages.js`. Each one lists the homes that carry
+Collections are defined in `COLLECTIONS` in `src/pages.js`. Each is a filter on the all-homes
+page (quick buttons and a Collection section in the Filters panel) that matches homes carrying
 its OwnerRez tag; to add a home to a collection, add the tag in OwnerRez.
 
 The design and copy match the previous Wander site at listings.irishmgmt.com.

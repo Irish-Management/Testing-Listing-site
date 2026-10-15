@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '14'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '15'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -55,38 +55,27 @@ export const AMENITY_FILTERS = [
   ['kayaks', 'Kayaks', /kayak/i],
 ];
 
-// Tag-driven collection pages, at the same addresses as stayirish.com/listings/<slug>.
-// Copy is from the matching stayirish.com pages.
+// Tag-driven collections, a quick filter on the all-homes page. /listings/<slug> (the
+// stayirish.com addresses) opens that page with the collection selected.
 export const COLLECTIONS = [
-  {
-    slug: 'unique', tag: 'The Unique Collection', name: 'The Unique Collection',
-    title: 'Explore Our Unique Collection', subtitle: '',
-    intro: 'Welcome to a curated showcase of Irish Management\u2019s most distinctive properties. Our Unique Collection features signature homes that stand out for their exceptional character, design, and locations. Each property in this collection is carefully selected to offer an unforgettable experience that combines luxury, comfort, and a touch of the extraordinary. From historical landmarks to modern architectural marvels, discover the perfect backdrop for your next getaway. Immerse yourself in elegance and exclusivity with our Unique Collection, where every stay is a journey beyond the ordinary.',
-    description: 'Explore our unique collection of homes with Irish Management. Discover one-of-a-kind properties that offer distinctive charm and special features for any stay.',
-  },
-  {
-    slug: 'large-groups', tag: 'Large Groups', name: 'Large Groups',
-    title: 'Homes for Large Groups', subtitle: 'Discover Spacious Luxury in Our Large Homes',
-    intro: 'Welcome to our collection of Large Homes, specially designed for gatherings, family reunions, and group retreats. Each of these expansive properties comfortably accommodates at least 12 guests, offering ample space for everyone to relax and connect. Featuring large living areas, multiple bedrooms, and generous outdoor spaces, our homes are perfect for those looking to enjoy time together under one roof.',
-    description: 'Discover your ideal group getaway with Irish Management! Our large vacation homes feature spacious living areas, multiple bedrooms, and fully-equipped kitchens, perfect for families, friends, or corporate retreats.',
-  },
-  {
-    slug: 'walking-campus', tag: '< 1 Mile from Campus', name: 'Homes <1 Mile from Campus',
-    title: 'Homes Close to Campus', subtitle: 'Stay Close to the Action: Homes Less Than a Mile from Campus',
-    intro: 'Experience the convenience and excitement of staying just steps away from Notre Dame. All are located within one mile of the university, making them perfect for visitors and fans wanting quick access to campus events, games, and activities. Whether you\u2019re in town for graduation, a football game, or an academic conference, these homes provide not only proximity but also comfort and style. Ideal for alumni, prospective students, and visiting academics, these properties let you soak in the full Notre Dame experience with unmatched ease.',
-    description: 'Find homes within walking distance to Notre Dame with Irish Management. Enjoy convenient access to campus and local attractions from our well-located properties.',
-  },
-  {
-    slug: 'small-groups', tag: 'Smaller Groups', name: 'Smaller Groups',
-    title: 'Homes for Smaller Groups', subtitle: 'Small Homes: Cozy and Intimate Retreats',
-    intro: 'Discover the charm and convenience of our Small Homes collection, ideal for smaller groups or couples seeking a cozy getaway. Each home features 2-3 beautifully appointed bedrooms, providing the perfect blend of intimacy and comfort. Whether you\u2019re planning a romantic retreat or a small family vacation, our Small Homes ensure a warm, inviting atmosphere that feels just like your own.',
-    description: 'Discover cozy homes for smaller groups with Irish Management. Perfect for intimate gatherings, these listings offer comfort and charm for your next getaway.',
-  },
+  { slug: 'unique', tag: 'The Unique Collection', name: 'The Unique Collection',
+    description: 'Explore our unique collection of homes with Irish Management. Discover one-of-a-kind properties that offer distinctive charm and special features for any stay.' },
+  { slug: 'large-groups', tag: 'Large Groups', name: 'Large Groups',
+    description: 'Discover your ideal group getaway with Irish Management! Our large vacation homes feature spacious living areas, multiple bedrooms, and fully-equipped kitchens, perfect for families, friends, or corporate retreats.' },
+  { slug: 'walking-campus', tag: '< 1 Mile from Campus', name: 'Homes <1 Mile from Campus',
+    description: 'Find homes within walking distance to Notre Dame with Irish Management. Enjoy convenient access to campus and local attractions from our well-located properties.' },
+  { slug: 'small-groups', tag: 'Smaller Groups', name: 'Smaller Groups',
+    description: 'Discover cozy homes for smaller groups with Irish Management. Perfect for intimate gatherings, these listings offer comfort and charm for your next getaway.' },
 ];
 
+// Collection slugs a home belongs to, from its OwnerRez tags.
+function collectionsOf(p) {
+  return COLLECTIONS.filter((c) => (p.tags || []).includes(c.tag.toLowerCase())).map((c) => c.slug);
+}
+
 function collectionChips(active) {
-  return '<nav class="cchips" aria-label="Collections"><a class="cchip' + (active ? '' : ' on') + '" href="/s">All homes</a>' +
-    COLLECTIONS.map((c) => '<a class="cchip' + (active === c.slug ? ' on' : '') + '" href="/listings/' + c.slug + '"' + (active === c.slug ? ' aria-current="page"' : '') + '>' + esc(c.name) + '</a>').join('') + '</nav>';
+  return '<nav class="cchips" aria-label="Collections"><a class="cchip' + (active ? '' : ' on') + '" href="/s" data-col="">All homes</a>' +
+    COLLECTIONS.map((c) => '<a class="cchip' + (active === c.slug ? ' on' : '') + '" href="/listings/' + c.slug + '" data-col="' + c.slug + '">' + esc(c.name) + '</a>').join('') + '</nav>';
 }
 
 // ---------- Icons ----------
@@ -264,7 +253,9 @@ function priceLine(p, q) {
 function card(p, q, eager) {
   const photos = (p.photos || []).slice(0, 5);
   const nightly = !(q && q.searched) && p.stay ? (p.stay.price / p.stay.nights).toFixed(2) : '';
-  return '<a class="card" href="' + esc(propHref(p, q)) + '" data-id="' + p.id + '" data-price="' + nightly + '" data-beds="' + p.bedrooms + '" data-rating="' + (p.rating || 0) + '" data-reviews="' + (p.reviews || 0) + '" data-baths="' + (p.bathrooms || 0) + '" data-pets="' + (p.maxPets || 0) + '" data-amen="' + esc((p.amen || []).join(' ')) + '">' +
+  const cols = collectionsOf(p);
+  const hide = q && q.collection && !cols.includes(q.collection.slug);
+  return '<a class="card' + (hide ? ' filtered' : '') + '" href="' + esc(propHref(p, q)) + '" data-cols="' + cols.join(' ') + '" data-id="' + p.id + '" data-price="' + nightly + '" data-beds="' + p.bedrooms + '" data-rating="' + (p.rating || 0) + '" data-reviews="' + (p.reviews || 0) + '" data-baths="' + (p.bathrooms || 0) + '" data-pets="' + (p.maxPets || 0) + '" data-amen="' + esc((p.amen || []).join(' ')) + '">' +
     '<div class="card-photos" data-carousel>' +
       '<div class="track">' + photos.map((u, i) => '<img src="' + esc(u) + '" alt="' + (i ? '' : esc(p.title)) + '"' + (eager && !i ? '' : ' loading="lazy"') + ' decoding="async">').join('') + '</div>' +
       (photos.length > 1
@@ -335,6 +326,8 @@ export function renderSearch(site, d) {
   const filters = '<div class="filters-wrap"><button type="button" class="filters-btn" id="filters-open" aria-haspopup="dialog">' + ICON.sliders + '<span>Filters</span><span class="fcount" id="fcount" hidden></span></button></div>';
   const filterModal = '<dialog class="modal filters-modal" id="filters" aria-label="Filters"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>Filters</strong><span></span></div>' +
     '<div class="modal-body">' +
+      '<section class="fsec"><h3>Collection</h3><div class="chips">' +
+        COLLECTIONS.map((c) => '<button type="button" class="fchip" data-col="' + c.slug + '" aria-pressed="false">' + esc(c.name) + '</button>').join('') + '</div></section>' +
       '<section class="fsec"><h3>' + (q.searched ? 'Total price' : 'Price per night') + '</h3>' +
         '<p class="muted small">' + (q.searched ? 'Rent and fees for your dates, before taxes.' : 'Based on each home\u2019s next available stay, before taxes.') + '</p>' +
         '<div class="hist" id="hist" aria-hidden="true"></div>' +
@@ -345,16 +338,12 @@ export function renderSearch(site, d) {
       '<section class="fsec"><h3>Accommodations</h3><label class="toggle"><span>Pets allowed</span><input type="checkbox" id="f-pets" role="switch"><span class="sw" aria-hidden="true"></span></label></section>' +
     '</div><div class="modal-foot"><button type="button" class="linkbtn" id="f-clear">Clear all</button><button type="button" class="btn-dark big" id="f-apply">Show homes</button></div></dialog>';
   const col = q.collection;
-  const hero = col && d.props.find((p) => p.photos && p.photos.length);
-  const colHead = col
-    ? '<header class="colhead"><div><h1>' + esc(col.title) + '</h1>' + (col.subtitle ? '<p class="colsub">' + esc(col.subtitle) + '</p>' : '') + '<p class="colintro">' + esc(col.intro) + '</p></div>' +
-      (hero ? '<img src="' + esc(hero.photos[0]) + '" alt="" fetchpriority="high">' : '') + '</header>'
-    : '';
+  const shownCount = col ? d.props.filter((p) => collectionsOf(p).includes(col.slug)).length : d.props.length;
   const body =
-    '<div class="search-top">' + colHead + collectionChips(col ? col.slug : null) + '</div>' +
+    '<div class="search-top">' + collectionChips(col ? col.slug : null) + '</div>' +
     '<div class="search-layout"><section class="results">' +
       (d.notice ? '<p class="notice">' + esc(d.notice) + '</p>' : '') +
-      '<div class="results-head"><' + (col ? 'h2' : 'h1') + ' class="eyebrow-h" id="rcount">' + plural(d.props.length, 'property', 'properties') + ' available</' + (col ? 'h2' : 'h1') + '>' +
+      '<div class="results-head"><h1 class="eyebrow-h" id="rcount">' + plural(shownCount, 'property', 'properties') + ' available</h1>' +
       (d.props.length > 1 ? '<label class="sort">Sort by <select id="sort">' +
         [['', 'Recommended'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['bedrooms', 'Most bedrooms'], ['rating', 'Top rated']]
           .map(([v, l]) => '<option value="' + v + '"' + (q.sort === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label>' : '') + '</div>' +
@@ -366,7 +355,7 @@ export function renderSearch(site, d) {
     '<script type="application/json" id="pins">' + json(pins) + '</script>';
   const title = (col ? col.name : 'All homes') + (q.searched ? ', open ' + rangeLabel(q.arrival, q.departure) : '');
   return layout(site, title + ' | ' + site.name, body,
-    { headerSearch: true, q, filters, map: true, cluster: true, script: 'search', bodyClass: 'searchpage', description: col ? col.description : undefined, image: hero ? hero.photos[0] : undefined });
+    { headerSearch: true, q, filters, map: true, cluster: true, script: 'search', bodyClass: 'searchpage', description: col ? col.description : undefined });
 }
 
 export function renderProperty(site, d) {

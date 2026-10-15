@@ -415,12 +415,6 @@ dialog.filters-modal[open]{display:flex}
 .search-top .cchips{margin-bottom:0}
 .search-top+.search-layout{padding-top:20px}
 @media (max-width:960px){.search-top{padding:12px 16px 0}}
-.colhead{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:40px;align-items:center;margin:8px 0 28px}
-.colhead h1{font-size:30px;line-height:36px;letter-spacing:-.01em}
-.colsub{font-weight:600;color:var(--ink);margin-top:10px}
-.colintro{color:var(--muted);margin-top:12px;max-width:640px}
-.colhead img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:12px}
-@media (max-width:820px){.colhead{grid-template-columns:1fr;gap:20px}.colhead img{order:-1;aspect-ratio:16/9}}
 .menu .menu-label{padding:10px 12px 4px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .menu a.sub{padding-left:20px}
 .menu .menu-sep{height:1px;background:var(--line);margin:6px 4px}

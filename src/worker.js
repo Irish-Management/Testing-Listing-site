@@ -625,10 +625,6 @@ async function route(request, env, ctx) {
     if (colMatch && !q.collection) return html(renderNotFound(s), 404);
     const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
     let homes = withSnapshot(props, snap);
-    if (q.collection) {
-      const tag = q.collection.tag.toLowerCase();
-      homes = homes.filter((p) => p.tags.includes(tag));
-    }
     let notice = '';
     q.searched = false;
     if (q.arrival || q.departure) {
