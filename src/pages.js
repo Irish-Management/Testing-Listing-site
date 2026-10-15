@@ -4,7 +4,7 @@
 import { GUIDE_INTRO, NOTRE_DAME, GUIDE_SECTIONS, GETTING_AROUND, VISIT_SOUTH_BEND } from './guide.js';
 import { POSTS } from './posts.js';
 
-const V = '52'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '53'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -210,8 +210,18 @@ function trackingHead(site) {
     (t.clarity ? '<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",' + json(t.clarity) + ');</script>' : '');
 }
 
+// Shorten text to max characters at a word boundary (search result descriptions).
+function clip(text, max) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  return t.slice(0, max - 1).replace(/[\s,;:.]+\S*$/, '') + '…';
+}
+
 function layout(site, title, body, opts = {}) {
-  const desc = opts.description || 'Notre Dame vacation rentals, booked direct with Irish Management. Stay minutes from campus and Notre Dame Stadium and skip the extra fees.';
+  const desc = clip(opts.description || 'Notre Dame vacation rentals, booked direct with Irish Management. Stay minutes from campus and Notre Dame Stadium and skip the extra fees.', 160);
+  // Google shows about 60 characters of a title; drop the "| Irish Management" suffix when it would be cut off.
+  const suffix = ' | ' + site.name;
+  if (title.length > 65 && title.endsWith(suffix)) title = title.slice(0, -suffix.length);
   const canonical = opts.canonical ? site.origin + opts.canonical : '';
   const noindex = !site.indexable || opts.noindex;
   const image = abs(site, opts.image || '/img/hero.jpg');
@@ -368,7 +378,7 @@ function card(p, q, eager) {
   const hide = q && q.collection && !cols.includes(q.collection.slug);
   return '<a class="card' + (hide ? ' filtered' : '') + '" href="' + esc(propHref(p, q)) + '" data-cols="' + cols.join(' ') + '" data-id="' + p.id + '" data-price="' + nightly + '" data-beds="' + p.bedrooms + '" data-rating="' + (p.rating || 0) + '" data-reviews="' + (p.reviews || 0) + '" data-baths="' + (p.bathrooms || 0) + '" data-pets="' + (p.maxPets || 0) + '" data-amen="' + esc((p.amen || []).join(' ')) + '">' +
     '<div class="card-photos" data-carousel>' +
-      '<div class="track">' + photos.map((u, i) => '<img' + (i ? deferredSrcAttrs(u, SIZES.card) : srcAttrs(u, SIZES.card)) + ' alt="' + (i ? '' : esc(p.title)) + '"' + (eager && !i ? '' : ' loading="lazy"') + ' decoding="async">').join('') + '</div>' +
+      '<div class="track">' + photos.map((u, i) => '<img' + (i ? deferredSrcAttrs(u, SIZES.card) : srcAttrs(u, SIZES.card)) + ' alt="' + esc(i ? p.title + ', photo ' + (i + 1) : p.title) + '"' + (eager && !i ? '' : ' loading="lazy"') + ' decoding="async">').join('') + '</div>' +
       (photos.length > 1
         ? '<button type="button" class="car-btn prev" aria-label="Previous photo" tabindex="-1">' + ICON.left + '</button><button type="button" class="car-btn next" aria-label="Next photo" tabindex="-1">' + ICON.right + '</button>' +
           '<div class="dots" aria-hidden="true">' + photos.map((_, i) => '<span' + (i ? '' : ' class="on"') + '></span>').join('') + '</div>'
@@ -428,7 +438,7 @@ function homeFaq(site, f) {
 export function renderHome(site, d) {
   const r = d.rating;
   const body =
-    '<section class="hero"><div class="hero-media"><img src="/img/hero.jpg" alt="" fetchpriority="high"></div>' +
+    '<section class="hero"><div class="hero-media"><img src="/img/hero.jpg" srcset="/img/hero-900.jpg 900w, /img/hero.jpg 1800w" sizes="100vw" alt="Irish Management vacation home near Notre Dame" fetchpriority="high"></div>' +
       '<div class="hero-copy"><h1>Notre Dame Vacation Rentals, Booked Direct</h1>' +
       '<p>From cozy condos to game-day estates, stay minutes from campus and Notre Dame Stadium. Book direct with Irish Management and skip the extra fees.</p>' +
       searchPill({}) + '</div></section>' +
@@ -521,7 +531,7 @@ export function renderSearch(site, d) {
     numberOfItems: listed.length,
     itemListElement: listed.slice(0, 100).map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: site.origin + propHref(p), name: p.title })),
   }];
-  const title = (q.dest ? q.dest.name : col ? col.name : 'All homes') + (q.searched ? ', open ' + rangeLabel(q.arrival, q.departure) : '');
+  const title = (q.dest ? q.dest.name : col ? col.name : 'Vacation Rentals Near Notre Dame & South Bend') + (q.searched ? ', open ' + rangeLabel(q.arrival, q.departure) : '');
   return layout(site, title + ' | ' + site.name, body,
     { headerSearch: true, q, filters, map: true, script: 'search', bodyClass: 'searchpage', description: q.dest ? q.dest.intro : col ? col.description : 'Browse ' + d.props.length + ' vacation rentals near Notre Dame and South Bend with live availability, prices, and a map. Book direct with Irish Management.',
       canonical: path, noindex: filtered, schema: itemList });
@@ -581,12 +591,12 @@ export function renderProperty(site, d) {
   const reviewCount = l ? l.reviewCount : 0;
 
   const gallery = '<section class="gallery" id="photos" data-count="' + photos.length + '">' +
-    [0, 1, 2, 3, 4].map((i) => '<button type="button" class="ph ph' + i + '" data-photo="' + i + '">' + (photos[i] ? '<img' + srcAttrs(photos[i].url, i ? SIZES.side : SIZES.hero) + ' alt="' + esc(photos[i].caption || (i ? '' : p.title)) + '"' + (i ? ' loading="lazy"' : ' fetchpriority="high"') + '>' : '') + '</button>').join('') +
+    [0, 1, 2, 3, 4].map((i) => '<button type="button" class="ph ph' + i + '" data-photo="' + i + '">' + (photos[i] ? '<img' + srcAttrs(photos[i].url, i ? SIZES.side : SIZES.hero) + ' alt="' + esc(photos[i].caption || (i ? p.title + ', photo ' + (i + 1) : p.title)) + '"' + (i ? ' loading="lazy"' : ' fetchpriority="high"') + '>' : '') + '</button>').join('') +
     (photos.length > 1 ? '<button type="button" class="chip gallery-all" data-photo="0">View all ' + photos.length + ' photos</button>' : '') +
     '</section>';
 
   const photosDialog = '<dialog class="modal photos-modal" id="photos-modal" aria-label="All photos"><div class="modal-head"><button type="button" class="iconbtn" data-close aria-label="Close">' + ICON.close + '</button><strong>' + esc(p.title) + '</strong><span></span></div>' +
-    '<div class="photo-list">' + photos.map((ph, i) => '<figure id="photo-' + i + '"><img' + srcAttrs(ph.url, SIZES.list) + ' alt="' + esc(ph.caption || '') + '" loading="lazy">' + (ph.caption ? '<figcaption>' + esc(ph.caption) + '</figcaption>' : '') + '</figure>').join('') + '</div></dialog>';
+    '<div class="photo-list">' + photos.map((ph, i) => '<figure id="photo-' + i + '"><img' + srcAttrs(ph.url, SIZES.list) + ' alt="' + esc(ph.caption || p.title + ', photo ' + (i + 1)) + '" loading="lazy">' + (ph.caption ? '<figcaption>' + esc(ph.caption) + '</figcaption>' : '') + '</figure>').join('') + '</div></dialog>';
 
   const facts = [plural(p.bedrooms, 'bedroom')];
   if (l && l.beds) facts.push(plural(l.beds, 'bed'));
@@ -709,7 +719,8 @@ export function renderProperty(site, d) {
   return layout(site, p.title + ' | ' + site.name, body, {
     canonical: '/property/' + p.id + '/' + slug(p.title), schema: [rentalSchema(site, p, l, photos, reviews)],
     headerSearch: true, textBar: true, q: { arrival: d.stay.arrival, departure: d.stay.departure }, map: !!where, script: 'property', bodyClass: 'proppage',
-    description: (l && (l.summary || l.headline)) || undefined, image: photos[0] && photos[0].url,
+    description: p.title + ': ' + [plural(p.bedrooms, 'bedroom'), p.bathrooms ? plural(p.bathrooms, 'bath', 'baths') : '', 'sleeps ' + sleeps, location].filter(Boolean).join(', ') + '. ' +
+      ((l && (l.summary || l.headline)) || 'Book direct with Irish Management, the local South Bend team.'), image: photos[0] && photos[0].url,
   });
 }
 
@@ -973,7 +984,8 @@ export function renderSitemap(site, d) {
 }
 
 function legal(site, title, sections, path) {
-  return layout(site, title + ' | ' + site.name, '<article class="wrap legal"><h1>' + esc(title) + '</h1>' + sections + '</article>', { canonical: path });
+  return layout(site, title + ' | ' + site.name, '<article class="wrap legal"><h1>' + esc(title) + '</h1>' + sections + '</article>',
+    { canonical: path, description: title + ' for ' + site.name + ' vacation rentals near Notre Dame: reservations, payments, privacy, and guest policies.' });
 }
 
 const contactBlock = (site) => '<p>' + esc(site.name) + '<br>1539 N Ironwood Dr, South Bend, IN 46635' +
