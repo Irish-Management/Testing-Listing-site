@@ -1,7 +1,7 @@
 // HTML templates for the direct booking site. Styles live in public/site.css and
 // browser scripts in public/*.js; both are served as static assets by the Worker.
 
-const V = '17'; // bump to make browsers fetch new CSS and JS after a deploy
+const V = '18'; // bump to make browsers fetch new CSS and JS after a deploy
 
 export function esc(v) {
   return String(v == null ? '' : v)
@@ -499,6 +499,14 @@ function weekday(iso) { return new Date(iso + 'T00:00:00Z').toLocaleDateString('
 function stayLabel(a, b) { return weekday(a) + ', ' + shortDate(a) + ' – ' + weekday(b) + ', ' + shortDate(b); }
 function groupId(name) { return slug(name); }
 
+function countdown(days) {
+  if (days <= 0) return 'This weekend';
+  if (days === 1) return 'Tomorrow';
+  if (days < 14) return 'In ' + days + ' days';
+  if (days < 60) return 'In ' + Math.round(days / 7) + ' weeks';
+  return Math.round(days / 30.4) + ' months away';
+}
+
 function eventCard(e, total, site) {
   const nights = Math.round((Date.parse(e.departure) - Date.parse(e.arrival)) / 86400000);
   const d = e.date || e.arrival;
@@ -506,21 +514,40 @@ function eventCard(e, total, site) {
   const badge = e.date
     ? '<div class="ev-date"><span>' + month + '</span><b>' + Number(d.slice(8)) + '</b><span>' + weekday(d).toUpperCase() + '</span></div>'
     : '<div class="ev-date range"><span>' + month + '</span><b>' + Number(e.arrival.slice(8)) + '–' + Number(e.departure.slice(8)) + '</b><span>' + e.arrival.slice(0, 4) + '</span></div>';
-  let status = '';
+
+  // Urgency that is true for this weekend, from the live count of open homes.
+  let pitch = '';
   if (e.open != null && total) {
     const share = e.open / total;
-    const cls = e.open === 0 ? 'out' : share <= 0.15 ? 'low' : share <= 0.4 ? 'mid' : 'ok';
-    const label = e.open === 0 ? 'Fully booked' : share <= 0.15 ? 'Only ' + e.open + ' left' : share <= 0.4 ? 'Filling up' : 'Good availability';
-    status = '<div class="ev-avail"><div class="ev-bar"><span class="' + cls + '" style="width:' + Math.max(e.open ? 4 : 0, Math.round(share * 100)) + '%"></span></div>' +
-      '<p><span class="ev-tag ' + cls + '">' + label + '</span>' + (e.open ? plural(e.open, 'home') + ' of ' + total + ' still open' : 'Every home is booked for this weekend') + '</p></div>';
+    const [cls, head, sub] = e.open === 0
+      ? ['out', 'Sold out', 'Text us and we’ll let you know if anything opens up.']
+      : share <= 0.15 ? ['low', e.open === 1 ? 'Only 1 home left' : 'Only ' + e.open + ' homes left', 'These go quickly. Book now to lock in your stay.']
+      : share <= 0.4 ? ['mid', 'Booking fast', plural(e.open, 'home') + ' still open for this weekend.']
+      : ['ok', 'Best selection right now', 'Book early for your pick of ' + e.open + ' homes.'];
+    pitch = '<div class="ev-pitch ' + cls + '"><p class="ev-head">' + head + '</p><p class="ev-sub">' + esc(sub) + '</p></div>';
   }
+
+  const perks = [];
+  if (e.open) {
+    if (e.sleepsMax >= 10) perks.push('Sleeps up to ' + e.sleepsMax);
+    if (e.bigGroups) perks.push(plural(e.bigGroups, 'home') + ' for groups of 12+');
+    if (e.nearCampus) perks.push(e.nearCampus + ' within a mile of campus');
+  }
+  const photos = e.open && e.photos && e.photos.length
+    ? '<div class="ev-photos">' + e.photos.map((ph) => '<img src="' + esc(ph.url) + '" alt="" loading="lazy" title="' + esc(ph.title) + '">').join('') +
+      (e.open > e.photos.length ? '<span>+' + (e.open - e.photos.length) + '</span>' : '') + '</div>'
+    : '';
+
   const href = '/s?checkin=' + e.arrival + '&checkout=' + e.departure;
   const action = e.open === 0
-    ? (site.sms ? '<a class="chip" href="sms:' + esc(site.sms) + '">Text us about this weekend</a>' : '')
-    : '<a class="btn-dark big ev-go" href="' + esc(href) + '">See open homes</a>';
-  return '<article class="ev">' + badge + '<div class="ev-body"><h3>' + esc(e.name) + '</h3>' +
-    '<p class="muted">' + esc(stayLabel(e.arrival, e.departure)) + ' <span aria-hidden="true">&middot;</span> ' + plural(nights, 'night') + '</p>' +
-    status + action + '</div></article>';
+    ? (site.sms ? '<a class="chip ev-go" href="sms:' + esc(site.sms) + '">Text us about this weekend</a>' : '')
+    : '<a class="btn-dark big ev-go" href="' + esc(href) + '">' + (e.open ? 'See ' + plural(e.open, 'open home') : 'See open homes') + '</a>';
+  return '<article class="ev">' +
+    '<div class="ev-top">' + badge + '<div class="ev-title"><p class="ev-when">' + esc(countdown(e.days)) + '</p><h3>' + esc(e.name) + '</h3>' +
+      '<p class="muted">' + esc(stayLabel(e.arrival, e.departure)) + ' <span aria-hidden="true">&middot;</span> ' + plural(nights, 'night') + '</p></div></div>' +
+    pitch + photos +
+    (perks.length ? '<ul class="ev-perks">' + perks.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
+    action + '</article>';
 }
 
 export function renderBigDates(site, d) {

@@ -619,18 +619,29 @@ async function route(request, env, ctx) {
 
   if (path === '/listings' && request.method === 'GET') return Response.redirect(url.origin + '/s' + url.search, 301);
   if ((path === '/listings/big-dates' || path === '/big-dates') && request.method === 'GET') {
-    const props = await getProperties(env, ctx);
-    const ours = new Set(props.map((p) => p.id));
+    const [props, snap] = await Promise.all([getProperties(env, ctx), readSnapshot(env)]);
+    const homes = withSnapshot(props, snap);
+    const byId = new Map(homes.map((p) => [p.id, p]));
     const today = todayISO();
     const upcoming = EVENTS.filter((e) => (e.date || e.departure) >= today && validStay(e.arrival, e.departure));
     // How many of our homes are still open for each weekend. Cached for 30 minutes per weekend.
     const events = await Promise.all(upcoming.map(async (e) => {
-      let open = null;
+      let open = null, openHomes = [];
       try {
-        const ids = await cached(ctx, 'bigdate:v1:' + e.arrival + ':' + e.departure, 1800, () => searchAvailable(env, ctx, e.arrival, e.departure));
-        open = ids.filter((id) => ours.has(id)).length;
+        const ids = new Set(await cached(ctx, 'bigdate:v1:' + e.arrival + ':' + e.departure, 1800, () => searchAvailable(env, ctx, e.arrival, e.departure)));
+        // Keep the site's display order so the photos show the homes we feature first.
+        openHomes = homes.filter((p) => ids.has(p.id) && byId.has(p.id));
+        open = openHomes.length;
       } catch (err) { /* show the card without a count */ }
-      return Object.assign({}, e, { open });
+      const nearCampus = openHomes.filter((p) => p.tags.includes('< 1 mile from campus')).length;
+      return Object.assign({}, e, {
+        open,
+        days: Math.round((Date.parse(e.arrival) - Date.parse(today)) / 86400000),
+        sleepsMax: openHomes.reduce((m, p) => Math.max(m, p.maxGuests || 0), 0),
+        bigGroups: openHomes.filter((p) => (p.maxGuests || 0) >= 12).length,
+        nearCampus,
+        photos: openHomes.filter((p) => p.photos && p.photos.length).slice(0, 3).map((p) => ({ url: p.photos[0], title: p.title })),
+      });
     }));
     return html(renderBigDates(s, { events, groups: EVENT_GROUPS, total: props.length }));
   }
