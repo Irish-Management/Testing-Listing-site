@@ -290,7 +290,7 @@ export function renderHome(site, d) {
       '<div class="hero-copy"><h1>Notre Dame Vacation Rentals, Booked Direct</h1>' +
       '<p>From cozy condos to game-day estates, stay minutes from campus and Notre Dame Stadium. Book direct with Irish Management and skip the extra fees.</p>' +
       searchPill({}) + '</div></section>' +
-    '<section class="wrap props"><h2 class="eyebrow-h">Our Properties</h2>' + collectionChips(null) + '<div class="grid4">' + d.props.map((p, i) => card(p, null, i < 4)).join('') + '</div>' +
+    '<section class="wrap props"><h2 class="eyebrow-h">Our Properties</h2><div class="grid4">' + d.props.map((p, i) => card(p, null, i < 4)).join('') + '</div>' +
       '<div class="center-btn"><a class="chip" href="/s">See more properties</a></div></section>' +
     '<section class="occasions"><div class="wrap"><p class="sub">From intimate retreats to estates that sleep 25+, each property is thoughtfully appointed for comfort and style.</p>' +
       '<h2>Homes for Every Occasion</h2><div class="occ-grid">' +
